@@ -150,6 +150,34 @@ def _process_task(task_id: str) -> None:
         task.logs = f"[{now}] Task started: {task.task_type}\n"
         _save_task(task)
 
+        # Route glb_inspect with an asset_id to the real inspection pipeline
+        if task.task_type == "glb_inspect" and task.asset_id:
+            from app.services import inspection_service
+            try:
+                report = inspection_service.run_inspection(task.asset_id)
+                now = datetime.now(timezone.utc).isoformat()
+                task.logs += f"Blender used: {report.blender_used}\n"
+                task.logs += f"Fallback estimate: {report.fallback_estimate}\n"
+                if report.blender_logs:
+                    task.logs += report.blender_logs
+                task.logs += (
+                    f"Mesh count: {report.mesh_count}\n"
+                    f"Material count: {report.material_count}\n"
+                    f"Triangles: {report.estimated_triangles}\n"
+                    f"Has UVs: {report.has_uvs}\n"
+                    f"Has Armature: {report.has_armature}\n"
+                    f"Has Animations: {report.has_animations}\n"
+                )
+                task.logs += f"[{now}] Inspection complete.\n"
+                task.status = "completed"
+            except Exception as exc:
+                now = datetime.now(timezone.utc).isoformat()
+                task.logs += f"[{now}] Inspection failed: {exc}\n"
+                task.status = "failed"
+            task.updated_at = datetime.now(timezone.utc).isoformat()
+            _save_task(task)
+            return
+
         # Select command
         if task.task_type in _MOCK_COMMANDS:
             cmd = _MOCK_COMMANDS[task.task_type]

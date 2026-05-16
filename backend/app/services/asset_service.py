@@ -183,6 +183,28 @@ def rename_asset(
     raise ValueError(f"Asset {asset_id} not found")
 
 
+def update_inspection_metadata(
+    asset_id: str,
+    polygon_count: int | None,
+    material_count: int | None,
+    has_uvs: bool | None,
+    project_id: str | None = None,
+) -> bool:
+    assets = _load_registry(project_id)
+    for asset in assets:
+        if asset.id == asset_id:
+            if polygon_count is not None:
+                asset.polygon_count = polygon_count
+            if material_count is not None:
+                asset.material_count = material_count
+            if has_uvs is not None:
+                asset.has_uvs = has_uvs
+            asset.updated_at = datetime.now(timezone.utc).isoformat()
+            _save_registry(assets, project_id)
+            return True
+    return False
+
+
 def delete_asset(asset_id: str, project_id: str | None = None) -> bool:
     assets = _load_registry(project_id)
     original_len = len(assets)

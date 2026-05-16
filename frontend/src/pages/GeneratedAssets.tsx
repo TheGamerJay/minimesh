@@ -7,23 +7,26 @@ import {
 } from "../lib/assets";
 import { getJob } from "../lib/jobs";
 import { Job } from "../lib/jobs";
+import { GLBInspectionReport, getInspection } from "../lib/inspections";
 import AssetCard from "../components/assets/AssetCard";
 import AssetInspector from "../components/assets/AssetInspector";
 import AssetVersionPanel from "../components/assets/AssetVersionPanel";
 import AssetToolbar from "../components/assets/AssetToolbar";
+import InspectionPanel from "../components/assets/InspectionPanel";
 
 interface Props {
   onBack: () => void;
   onOpenViewer: (job: Job) => void;
 }
 
-type InspectorTab = "info" | "versions";
+type InspectorTab = "info" | "versions" | "inspection";
 
 export default function GeneratedAssets({ onBack, onOpenViewer }: Props) {
   const [assets, setAssets] = useState<GeneratedAsset[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [inspectorTab, setInspectorTab] = useState<InspectorTab>("info");
+  const [inspectionReports, setInspectionReports] = useState<Record<string, GLBInspectionReport>>({});
   const [filterType, setFilterType] = useState("all");
   const [filterProvider, setFilterProvider] = useState("all");
   const [sortBy, setSortBy] = useState("newest");
@@ -56,6 +59,21 @@ export default function GeneratedAssets({ onBack, onOpenViewer }: Props) {
     const dup = await duplicateAsset(assetId);
     setAssets((prev) => [dup, ...prev]);
     setSelectedId(dup.id);
+  }
+
+  async function handleSelectAsset(id: string) {
+    const newId = id === selectedId ? null : id;
+    setSelectedId(newId);
+    if (newId && !inspectionReports[newId]) {
+      try {
+        const r = await getInspection(newId);
+        if (r) setInspectionReports((prev) => ({ ...prev, [newId]: r }));
+      } catch {}
+    }
+  }
+
+  function handleInspectionRefresh(report: GLBInspectionReport) {
+    setInspectionReports((prev) => ({ ...prev, [report.asset_id]: report }));
   }
 
   async function handleOpenViewer(asset: GeneratedAsset) {
@@ -148,7 +166,7 @@ export default function GeneratedAssets({ onBack, onOpenViewer }: Props) {
                   key={asset.id}
                   asset={asset}
                   selected={selectedId === asset.id}
-                  onSelect={() => setSelectedId(asset.id === selectedId ? null : asset.id)}
+                  onSelect={() => handleSelectAsset(asset.id)}
                   onDelete={() => handleDelete(asset.id)}
                   onDuplicate={() => handleDuplicate(asset.id)}
                   onOpenViewer={() => handleOpenViewer(asset)}
@@ -183,7 +201,7 @@ export default function GeneratedAssets({ onBack, onOpenViewer }: Props) {
 
             {/* Tabs */}
             <div className="flex border-b border-gray-800">
-              {(["info", "versions"] as InspectorTab[]).map((tab) => (
+              {(["info", "versions", "inspection"] as InspectorTab[]).map((tab) => (
                 <button
                   key={tab}
                   onClick={() => setInspectorTab(tab)}
@@ -193,7 +211,7 @@ export default function GeneratedAssets({ onBack, onOpenViewer }: Props) {
                       : "text-gray-500 hover:text-gray-300"
                   }`}
                 >
-                  {tab === "info" ? "Info & Tags" : "Versions"}
+                  {tab === "info" ? "Info" : tab === "versions" ? "Versions" : "Inspect"}
                 </button>
               ))}
             </div>
@@ -201,8 +219,14 @@ export default function GeneratedAssets({ onBack, onOpenViewer }: Props) {
             <div className="flex-1 overflow-y-auto">
               {inspectorTab === "info" ? (
                 <AssetInspector asset={selectedAsset} onChange={updateAsset} />
-              ) : (
+              ) : inspectorTab === "versions" ? (
                 <AssetVersionPanel asset={selectedAsset} />
+              ) : (
+                <InspectionPanel
+                  assetId={selectedAsset.id}
+                  report={inspectionReports[selectedAsset.id] ?? null}
+                  onRefresh={handleInspectionRefresh}
+                />
               )}
             </div>
 
@@ -214,6 +238,12 @@ export default function GeneratedAssets({ onBack, onOpenViewer }: Props) {
                 className="w-full py-2 rounded bg-violet-600 hover:bg-violet-500 text-white text-sm font-medium transition-colors disabled:opacity-50"
               >
                 {openingViewer === selectedAsset.id ? "Opening…" : "Open in Viewer"}
+              </button>
+              <button
+                onClick={() => setInspectorTab("inspection")}
+                className="w-full py-2 rounded bg-gray-700 hover:bg-gray-600 text-gray-200 text-sm font-medium transition-colors"
+              >
+                {inspectionReports[selectedAsset.id] ? "View Inspection" : "Run Inspection"}
               </button>
               {selectedAsset.provider !== "mock" && (
                 <a

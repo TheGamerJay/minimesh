@@ -311,7 +311,88 @@ Subprocess safety guarantees:
 - `timeout` enforced (20s default, 10s for Blender version check)
 - Handles `TimeoutExpired`, `FileNotFoundError`, `PermissionError`
 
-Future integration: replace `_MOCK_COMMANDS[task_type]` with real Blender Python script arguments, e.g. `[blender_path, "--background", glb_path, "--python", script_path]`.
+`glb_inspect` tasks with `asset_id` now bypass the mock command and call `inspection_service.run_inspection()` directly inside `_process_task`. Logs capture Blender-used flag, fallback flag, and extracted counts.
+
+---
+
+## Inspection Pipeline (Phase 22)
+
+**Files:** `backend/app/models/inspection.py`, `backend/app/services/inspection_service.py`, `backend/app/routes/inspections.py`, `workers/blender_inspect.py`
+
+### GLB Inspection Data Model
+
+```
+GLBInspectionReport
+  asset_id, generated_at
+  object_count, mesh_count, material_count, estimated_triangles
+  bounding_box: { width, height, depth }   # world-space meters
+  object_names[], material_names[]
+  has_armature, has_animations, has_uvs
+  file_size (bytes)
+  fallback_estimate (bool)  # true when Blender unavailable
+  blender_used (bool), blender_version, blender_logs
+```
+
+Storage: `storage/inspections/{asset_id}.json` (final report); `storage/inspections/{asset_id}_raw.json` (raw Blender JSON output).
+
+### Blender Headless Script
+
+`workers/blender_inspect.py` is invoked as:
+```
+blender --background --python workers/blender_inspect.py -- <glb_path> <output_json>
+```
+
+Inside Blender's Python environment (`bpy`):
+1. `bpy.ops.wm.read_factory_settings(use_empty=True)` — clears scene
+2. `bpy.ops.import_scene.gltf(filepath=glb_path)` — imports GLB
+3. Iterates `bpy.context.scene.objects` — counts mesh/armature objects
+4. For each mesh: iterates `polygon.vertices` to count triangles (`n-2` per polygon), checks `mesh.uv_layers`, collects `obj.material_slots`
+5. Checks `bpy.data.actions` for animations
+6. Computes world-space bounding box: `obj.matrix_world @ Vector(corner)` for each `obj.bound_box` corner across all mesh objects
+7. Writes JSON result to `output_json`
+
+### Inspection Service
+
+`run_inspection(asset_id)`:
+1. Fetches asset from registry → validates GLB path exists
+2. If Blender found AND GLB exists → runs `_run_blender_inspection()` (calls `blender_bridge.run_glb_inspection()`)
+3. Else → `_fallback_inspection()` returns: `{mesh_count:1, material_count:1, estimated_triangles:1400, has_uvs:true, fallback_estimate:true}`
+4. Saves final report to `storage/inspections/{asset_id}.json`
+5. Calls `asset_service.update_inspection_metadata()` to sync `polygon_count`, `material_count`, `has_uvs` into the asset registry
+
+### Blender Bridge Extension
+
+`run_glb_inspection(glb_path, output_json, script_path, timeout=60)` → `(bool, stdout, stderr)`:
+- Constructs `[blender_exe, "--background", "--python", script_path, "--", glb_path, output_json]`
+- `shell=False`, `capture_output=True`, explicit timeout
+- Returns `(False, "", error_msg)` on timeout/FileNotFoundError/PermissionError
+
+### Asset Metadata Sync
+
+`GeneratedAsset` extended with `material_count: int | None` and `has_uvs: bool | None`. After every successful inspection (real or fallback), `update_inspection_metadata()` patches these fields in the asset registry JSON, enabling the asset card grid to surface real metadata without a separate inspection fetch.
+
+### Routes
+
+```
+POST /api/inspections/run/{asset_id}   → GLBInspectionReport  (runs inspection synchronously)
+GET  /api/inspections/{asset_id}       → GLBInspectionReport  (404 if no prior inspection)
+```
+
+### Frontend Inspection UI
+
+`InspectionPanel` component (`frontend/src/components/assets/InspectionPanel.tsx`):
+- **REAL** badge (violet) when `blender_used=true`, **FALLBACK ESTIMATE** badge (amber) otherwise
+- Stats grid: Objects / Meshes / Triangles / Materials / File Size
+- Feature flags: UVs / Armature / Animations with emerald/gray badges
+- Bounding box W/H/D display
+- Scrollable object names list (max-h-24) and material names list (max-h-20)
+- "Run Inspection" or "Re-inspect" button calls `runInspection()` + `onRefresh()` callback
+
+`GeneratedAssets` additions:
+- "Inspect" tab added to inspector tab bar (alongside Info / Versions)
+- `inspectionReports` state: `Record<string, GLBInspectionReport>` keyed by asset_id
+- On asset select → auto-fetches cached report via `getInspection()` (silent on 404)
+- "Run Inspection" / "View Inspection" shortcut button in inspector actions panel
 
 ---
 

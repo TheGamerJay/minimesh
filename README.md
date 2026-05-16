@@ -6,9 +6,16 @@ Upload reference images. Choose a sculpt style. Generate a production-ready 3D a
 
 ---
 
-## Current Phase: Phase 21 — Local Worker + Blender Bridge Foundation (v2.1.0)
+## Current Phase: Phase 22 — Real Blender GLB Inspection + Metadata Extraction (v2.2.0)
 
-Local worker process with Blender bridge detection, safe subprocess execution, task queue, and live log viewer. See [docs/PHASES.md](docs/PHASES.md) for the full roadmap.
+Blender headless GLB inspection using `bpy`. Extracts true mesh count, triangle count, materials, UVs, armature, animations, and bounding box. Falls back gracefully when Blender is unavailable. See [docs/PHASES.md](docs/PHASES.md) for the full roadmap.
+
+**Inspection routes (Phase 22):**
+
+| Route | Method | Description |
+|-------|--------|-------------|
+| `/api/inspections/run/{asset_id}` | POST | Run GLB inspection (Blender if available, fallback otherwise) |
+| `/api/inspections/{asset_id}` | GET | Get latest inspection report |
 
 **Worker routes (Phase 21):**
 
@@ -24,11 +31,11 @@ Local worker process with Blender bridge detection, safe subprocess execution, t
 # backend/.env
 BLENDER_PATH=C:/Program Files/Blender Foundation/Blender 4.2/blender.exe
 ```
-If `BLENDER_PATH` is not set, the worker auto-detects Blender via `PATH` and common install locations. If not found, worker runs in mock mode using Python subprocesses.
+If `BLENDER_PATH` is not set, the worker and inspection pipeline auto-detect Blender via `PATH` and common install locations. If not found, inspection returns a fallback estimate clearly labeled `fallback_estimate: true`.
 
-**Worker behavior:** Tasks dispatch on a daemon thread. A `threading.Lock()` serializes execution (one task at a time). All subprocesses use `shell=False`, `capture_output=True`, and a 20-second timeout. `stdout` + `stderr` are captured into the task's `logs` field and streamed to the WorkerConsole log viewer via 2-second polling.
+**Inspection script:** `workers/blender_inspect.py` is the headless Blender script. It clears the scene, imports the GLB, counts meshes/triangles/materials, detects UVs/armature/animations, and computes the world-space bounding box. Output is written to `storage/inspections/{asset_id}_raw.json` and merged into a `GLBInspectionReport`.
 
-**Previous phase highlights:** Sculpt Studio + Edit Tools (Phase 20), UV & Bake Prep (Phase 19), Texture Pipeline (Phase 18), Real GLB Viewer (Phase 17), Asset Registry (Phase 16).
+**Previous phase highlights:** Local Worker + Blender Bridge (Phase 21), Sculpt Studio + Edit Tools (Phase 20), UV & Bake Prep (Phase 19), Texture Pipeline (Phase 18), Real GLB Viewer (Phase 17), Asset Registry (Phase 16).
 
 ---
 

@@ -22,6 +22,8 @@ class GeneratedAsset(BaseModel):
     preview_image: str | None = None
     thumbnail: str | None = None
     polygon_count: int | None = None   # None until real extraction is implemented
+    material_count: int | None = None
+    has_uvs: bool | None = None
     file_size: int = 0                 # bytes
     created_at: str
     updated_at: str

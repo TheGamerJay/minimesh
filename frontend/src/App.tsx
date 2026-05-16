@@ -442,7 +442,7 @@ export default function App() {
             </button>
           )}
           <span className="text-xs font-mono px-3 py-1 rounded-full border border-cyan-500/30 text-cyan-400 bg-cyan-500/5">
-            Phase 21 — Worker Console
+            Phase 22 — Blender GLB Inspection
           </span>
         </div>
       </header>
