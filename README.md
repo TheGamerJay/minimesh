@@ -6,28 +6,29 @@ Upload reference images. Choose a sculpt style. Generate a production-ready 3D a
 
 ---
 
-## Current Phase: Phase 20 — Sculpt / Edit Tools Foundation (v2.0.0)
+## Current Phase: Phase 21 — Local Worker + Blender Bridge Foundation (v2.1.0)
 
-Full sculpt workspace with edit operation architecture, transform gizmo, brush system, and edit history timeline. See [docs/PHASES.md](docs/PHASES.md) for the full roadmap.
+Local worker process with Blender bridge detection, safe subprocess execution, task queue, and live log viewer. See [docs/PHASES.md](docs/PHASES.md) for the full roadmap.
 
-**Edit routes (Phase 20):**
+**Worker routes (Phase 21):**
 
 | Route | Method | Description |
 |-------|--------|-------------|
-| `/api/edits/create` | POST | Create a mock edit operation (sculpt/smooth/inflate/pinch/move/transform/mirror) |
-| `/api/edits` | GET | List edit operations (optional `?asset_id=`) |
-| `/api/edits/{id}` | GET | Get operation status (polls mock provider if non-terminal) |
+| `/api/workers/health` | GET | Worker health + Blender detection status |
+| `/api/workers/tasks/create` | POST | Queue a worker task (glb_inspect / mesh_normalize / uv_check / mock_bake / mock_edit / export_prepare) |
+| `/api/workers/tasks` | GET | List all worker tasks |
+| `/api/workers/tasks/{id}` | GET | Get task status + logs |
 
-**Sculpt workspace:**
-- **SculptToolbar** — 6 tool modes: Clay, Smooth, Inflate, Pinch, Move, Mirror
-- **BrushSettingsPanel** — radius, strength, symmetry toggle, falloff (sphere/gaussian/flat)
-- **GizmoOverlay** — R3F transform gizmo (move arrows, rotate rings, scale cubes) — visual only
-- **EditHistoryPanel** — horizontal timeline of past operations with status, undo/redo placeholders
-- **EditOperationPanel** — inspector with Apply button, current settings, last operation status
+**Blender setup:**
+```env
+# backend/.env
+BLENDER_PATH=C:/Program Files/Blender Foundation/Blender 4.2/blender.exe
+```
+If `BLENDER_PATH` is not set, the worker auto-detects Blender via `PATH` and common install locations. If not found, worker runs in mock mode using Python subprocesses.
 
-**Edit operation behavior:** Mock provider simulates queued (0–1s) → processing (1–4s) → completed (≥4s). No real mesh deformation applied. Result JSON written to `exports/edits/{id}/edit_result.json`. History stored at `storage/edits/history.json`.
+**Worker behavior:** Tasks dispatch on a daemon thread. A `threading.Lock()` serializes execution (one task at a time). All subprocesses use `shell=False`, `capture_output=True`, and a 20-second timeout. `stdout` + `stderr` are captured into the task's `logs` field and streamed to the WorkerConsole log viewer via 2-second polling.
 
-**Previous phase highlights:** Texture Studio (Phase 18–19), UV & Bake Prep (Phase 19), Generated Asset Registry (Phase 16), Real GLB Viewer (Phase 17), Auto-Rigging (Phase 7), Animation Preview (Phase 8), Material Studio (Phase 12).
+**Previous phase highlights:** Sculpt Studio + Edit Tools (Phase 20), UV & Bake Prep (Phase 19), Texture Pipeline (Phase 18), Real GLB Viewer (Phase 17), Asset Registry (Phase 16).
 
 ---
 

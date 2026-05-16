@@ -254,6 +254,67 @@ Frontend: `GeneratedAssets` page — searchable/filterable grid, AssetCard with 
 
 ---
 
+## Worker Layer (Phase 21)
+
+**Files:** `backend/app/models/workers.py`, `backend/app/services/worker_service.py`, `backend/app/routes/workers.py`
+
+```
+WorkerTask
+  id, task_type (glb_inspect|mesh_normalize|uv_check|mock_bake|mock_edit|export_prepare)
+  provider ("local"), asset_id, status (queued|running|completed|failed)
+  input_files[], output_files[], logs, created_at, updated_at
+
+WorkerHealth
+  worker_online, blender_available, blender_version, blender_path, blender_mode
+  queue_size, active_tasks, last_check
+```
+
+Storage: `storage/workers/tasks/{id}.json`.
+
+Task execution: daemon thread calls `_process_task()`, which acquires `_queue_lock` to serialize sequential execution. Safe subprocess with `capture_output=True`, `shell=False`, `timeout=20`. Mock commands use `sys.executable` (Python itself) — always available, no external dependencies required.
+
+## Blender Bridge (Phase 21)
+
+**File:** `backend/app/services/blender_bridge.py`
+
+Blender detection order:
+1. `BLENDER_PATH` environment variable (from `backend/.env`)
+2. `shutil.which("blender")` (PATH lookup)
+3. 9 hardcoded common install paths (Windows / macOS / Linux)
+
+Version check: `subprocess.run([blender_path, "--version"], capture_output=True, text=True, timeout=10, shell=False)`. Result cached with 60-second TTL — `invalidate_cache()` available for forced refresh.
+
+To configure Blender: add `BLENDER_PATH=C:/Program Files/Blender Foundation/Blender 4.2/blender.exe` to `backend/.env`.
+
+## Queue Execution System (Phase 21)
+
+**File:** `backend/app/services/worker_service.py`
+
+```
+create_task()
+  → save task JSON (status=queued)
+  → threading.Thread(target=_process_task, daemon=True).start()
+  → return task immediately (non-blocking HTTP response)
+
+_process_task()  [background thread]
+  → blender_bridge.detect()   (cached — fast)
+  → acquire _queue_lock        (serializes execution)
+  → task.status = "running"
+  → _run_subprocess(cmd)       (safe: no shell=True, timeout, captured output)
+  → task.status = completed/failed
+  → write logs + save JSON
+```
+
+Subprocess safety guarantees:
+- `shell=False` on every call (no injection vector)
+- Args passed as `list[str]` (no string interpolation of user data)
+- `timeout` enforced (20s default, 10s for Blender version check)
+- Handles `TimeoutExpired`, `FileNotFoundError`, `PermissionError`
+
+Future integration: replace `_MOCK_COMMANDS[task_type]` with real Blender Python script arguments, e.g. `[blender_path, "--background", glb_path, "--python", script_path]`.
+
+---
+
 ## Edit Operation Layer (Phase 20)
 
 **Files:** `backend/app/models/editing.py`, `backend/app/services/edit_service.py`, `backend/app/routes/edits.py`

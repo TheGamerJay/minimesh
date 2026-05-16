@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import AnimationPreview from "./pages/AnimationPreview";
 import SculptStudio from "./pages/SculptStudio";
+import WorkerConsole from "./pages/WorkerConsole";
 import CreditDashboard from "./pages/CreditDashboard";
 import GeneratedAssets from "./pages/GeneratedAssets";
 import TextureStudio from "./pages/TextureStudio";
@@ -35,7 +36,8 @@ type Page =
   | "generated_assets"
   | "texture_studio"
   | "uv_bake_prep"
-  | "sculpt_studio";
+  | "sculpt_studio"
+  | "worker_console";
 
 const PIPELINE_STEPS: {
   id: number;
@@ -148,6 +150,13 @@ const PIPELINE_STEPS: {
     icon: "◈",
     description: "Preview sculpt workflows, edit operations, and future mesh editing pipelines.",
     page: "sculpt_studio" as Page,
+  },
+  {
+    id: 16,
+    label: "Worker Console",
+    icon: "⬡",
+    description: "Manage local worker tasks, Blender bridge, and future mesh operations.",
+    page: "worker_console" as Page,
   },
 ];
 
@@ -350,6 +359,14 @@ export default function App() {
     );
   }
 
+  if (page === "worker_console") {
+    return (
+      <CreditContext.Provider value={creditContextValue}>
+        <WorkerConsole onBack={() => setPage("home")} />
+      </CreditContext.Provider>
+    );
+  }
+
   if (page === "sculpt_studio") {
     return (
       <CreditContext.Provider value={creditContextValue}>
@@ -425,7 +442,7 @@ export default function App() {
             </button>
           )}
           <span className="text-xs font-mono px-3 py-1 rounded-full border border-cyan-500/30 text-cyan-400 bg-cyan-500/5">
-            Phase 20 — Sculpt Studio
+            Phase 21 — Worker Console
           </span>
         </div>
       </header>
@@ -478,7 +495,7 @@ export default function App() {
               </span>
             </span>
           </div>
-          <span className="text-xs text-slate-600 font-mono">v2.0.0</span>
+          <span className="text-xs text-slate-600 font-mono">v2.1.0</span>
         </div>
       </main>
     </div>
