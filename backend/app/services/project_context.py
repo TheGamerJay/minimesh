@@ -131,10 +131,17 @@ def get_export_animations_dir(project_id: str | None = None) -> Path:
     return PROJECT_ROOT / "exports" / "projects" / pid / "animations"
 
 
+def get_assets_dir(project_id: str | None = None) -> Path:
+    pid = _pid(project_id)
+    if pid == LEGACY_ID:
+        return PROJECT_ROOT / "storage" / "assets"
+    return PROJECT_ROOT / "storage" / "projects" / pid / "assets"
+
+
 def ensure_project_dirs(project_id: str | None = None) -> None:
     for fn in (
         get_uploads_dir, get_jobs_dir, get_rigs_dir, get_animations_dir,
-        get_modules_dir, get_audits_dir,
+        get_modules_dir, get_audits_dir, get_assets_dir,
         get_export_packages_dir, get_export_jobs_dir,
         get_export_rigs_dir, get_export_animations_dir,
     ):

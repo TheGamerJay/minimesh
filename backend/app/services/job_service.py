@@ -140,6 +140,19 @@ def create_job() -> Job:
     return job
 
 
+def _maybe_register_asset(job: Job) -> Job:
+    """Auto-register GLB as an asset when a real provider job completes."""
+    if job.status == "completed" and job.model_downloaded and not job.asset_id:
+        try:
+            from app.services.asset_service import auto_register_from_job
+            asset = auto_register_from_job(job)
+            if asset:
+                job.asset_id = asset.id
+        except Exception:
+            pass
+    return job
+
+
 def get_job(job_id: str) -> Job | None:
     job = _load_job(job_id)
     if job is None:
@@ -147,6 +160,10 @@ def get_job(job_id: str) -> Job | None:
     if job.status not in ("completed", "failed"):
         provider = _get_provider_by_name(job.provider)
         job = provider.poll(job)
+        job = _maybe_register_asset(job)
+        _persist_job(job)
+    elif job.status == "completed" and job.model_downloaded and not job.asset_id:
+        job = _maybe_register_asset(job)
         _persist_job(job)
     return job
 
@@ -162,6 +179,10 @@ def list_jobs() -> list[Job]:
             if job.status not in ("completed", "failed"):
                 provider = _get_provider_by_name(job.provider)
                 job = provider.poll(job)
+                job = _maybe_register_asset(job)
+                _persist_job(job)
+            elif job.status == "completed" and job.model_downloaded and not job.asset_id:
+                job = _maybe_register_asset(job)
                 _persist_job(job)
             jobs.append(job)
         except Exception:

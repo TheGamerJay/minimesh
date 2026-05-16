@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import AnimationPreview from "./pages/AnimationPreview";
 import CreditDashboard from "./pages/CreditDashboard";
+import GeneratedAssets from "./pages/GeneratedAssets";
 import MaterialStudio from "./pages/MaterialStudio";
 import ProjectManager from "./pages/ProjectManager";
 import ProviderSettings from "./pages/ProviderSettings";
@@ -28,7 +29,8 @@ type Page =
   | "quality_check"
   | "project_library"
   | "credit_dashboard"
-  | "provider_settings";
+  | "provider_settings"
+  | "generated_assets";
 
 const PIPELINE_STEPS: {
   id: number;
@@ -113,6 +115,13 @@ const PIPELINE_STEPS: {
     icon: "⬡",
     description: "Manage AI providers, fallback rules, API keys, and generation health.",
     page: "provider_settings" as Page,
+  },
+  {
+    id: 12,
+    label: "Generated Assets",
+    icon: "◈",
+    description: "Browse, tag, rename, duplicate, and download all registered 3D outputs.",
+    page: "generated_assets" as Page,
   },
 ];
 
@@ -307,6 +316,14 @@ export default function App() {
     return <ProviderSettings onBack={() => setPage("home")} />;
   }
 
+  if (page === "generated_assets") {
+    return (
+      <CreditContext.Provider value={creditContextValue}>
+        <GeneratedAssets onBack={() => setPage("home")} onOpenViewer={handleOpenViewer} />
+      </CreditContext.Provider>
+    );
+  }
+
   return (
     <CreditContext.Provider value={creditContextValue}>
     <div className="min-h-screen bg-[#0a0a0f] text-slate-100">
@@ -366,7 +383,7 @@ export default function App() {
             </button>
           )}
           <span className="text-xs font-mono px-3 py-1 rounded-full border border-cyan-500/30 text-cyan-400 bg-cyan-500/5">
-            Phase 15 — Provider Registry
+            Phase 16 — Asset Manager
           </span>
         </div>
       </header>
@@ -419,7 +436,7 @@ export default function App() {
               </span>
             </span>
           </div>
-          <span className="text-xs text-slate-600 font-mono">v1.5.0</span>
+          <span className="text-xs text-slate-600 font-mono">v1.6.0</span>
         </div>
       </main>
     </div>

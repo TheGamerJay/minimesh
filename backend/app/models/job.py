@@ -26,3 +26,6 @@ class Job(BaseModel):
     progress: int = 0
     # Phase 15 — provider fallback chain
     provider_attempts: list[str] = []
+    # Phase 16 — asset registration
+    asset_id: str | None = None
+    project_id: str | None = None

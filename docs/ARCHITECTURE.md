@@ -192,6 +192,31 @@ RodinProvider (name="rodin")       # stub — NotImplementedError
 
 Provider selected via `provider_registry.get_first_available("generation")`. Provider name stored on job for correct polling.
 
+## Asset Registry (Phase 16)
+
+**Files:** `backend/app/models/assets.py`, `backend/app/services/asset_service.py`, `backend/app/routes/assets.py`
+
+```
+GeneratedAsset
+  id, project_id, source_job_id, provider, asset_type
+  file_path, name, preview_image, thumbnail
+  polygon_count (None — real extraction future), file_size (bytes)
+  created_at, updated_at, version, tags, versions[]
+
+AssetVersion
+  version, file_path, created_at, provider
+```
+
+Storage: `storage/projects/{id}/assets/registry.json` (ordered list, newest first).
+
+Auto-registration: `job_service._maybe_register_asset(job)` runs after every poll. If `job.status == "completed" and job.model_downloaded and not job.asset_id`, calls `asset_service.auto_register_from_job(job)` and writes `asset_id` back to the job JSON. Duplicate guard: checks registry for matching `source_job_id` before inserting.
+
+Routes: `GET /api/assets`, `GET /api/assets/{id}`, `DELETE`, `POST /{id}/duplicate`, `PATCH /{id}/rename`, `PATCH /{id}/tags`.
+
+Frontend: `GeneratedAssets` page — searchable/filterable grid, AssetCard with preview image, AssetInspector (inline rename, tag CRUD, metadata), AssetVersionPanel, download link for real GLBs, "Open in Viewer" loads source job.
+
+---
+
 ## GLB Loader Pipeline
 
 ```

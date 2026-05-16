@@ -17,6 +17,7 @@ from app.routes.credits import router as credits_router
 from app.routes.materials import router as materials_router
 from app.routes.providers import router as providers_router
 from app.routes.modules import router as modules_router
+from app.routes.assets import router as assets_router
 from app.routes.projects import router as projects_router
 from app.routes.rigs import router as rigs_router
 from app.routes.uploads import router as uploads_router
@@ -43,11 +44,12 @@ _PACKAGES_DIR.mkdir(parents=True, exist_ok=True)
 (PROJECT_ROOT / "storage" / "credits" / "ledger").mkdir(parents=True, exist_ok=True)
 (PROJECT_ROOT / "exports" / "projects").mkdir(parents=True, exist_ok=True)
 (PROJECT_ROOT / "storage" / "providers").mkdir(parents=True, exist_ok=True)
+(PROJECT_ROOT / "storage" / "assets").mkdir(parents=True, exist_ok=True)
 
 app = FastAPI(
     title=settings.APP_NAME,
     description="AI-powered image-to-3D, sculpting, rigging, and animation pipeline studio.",
-    version="1.5.0",
+    version="1.6.0",
 )
 
 app.add_middleware(
@@ -85,6 +87,7 @@ app.include_router(library_router)
 app.include_router(materials_router)
 app.include_router(credits_router)
 app.include_router(providers_router)
+app.include_router(assets_router)
 
 
 @app.get("/")

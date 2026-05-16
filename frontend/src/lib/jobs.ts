@@ -21,6 +21,9 @@ export interface Job {
   progress?: number;
   // Phase 15 — provider fallback chain
   provider_attempts?: string[];
+  // Phase 16 — asset registration
+  asset_id?: string | null;
+  project_id?: string | null;
 }
 
 export async function createJob(): Promise<Job> {
