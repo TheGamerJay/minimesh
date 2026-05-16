@@ -1,4 +1,4 @@
-import { Suspense, useEffect, useRef, Component, ReactNode } from "react";
+import { Suspense, useEffect, useRef, useMemo, Component, ReactNode } from "react";
 import { useGLTF } from "@react-three/drei";
 import * as THREE from "three";
 
@@ -9,17 +9,30 @@ export interface ModelStats {
   boundingBoxSize: { x: number; y: number; z: number };
 }
 
+// Maps PBR slot names to MeshStandardMaterial property keys
+const SLOT_MAP: Record<string, (mat: THREE.MeshStandardMaterial, tex: THREE.Texture) => void> = {
+  albedo:    (m, t) => { m.map = t; },
+  normal:    (m, t) => { m.normalMap = t; },
+  roughness: (m, t) => { m.roughnessMap = t; },
+  metallic:  (m, t) => { m.metalnessMap = t; },
+  emissive:  (m, t) => { m.emissiveMap = t; m.emissive.set(1, 1, 1); },
+  ao:        (m, t) => { m.aoMap = t; },
+  opacity:   (m, t) => { m.alphaMap = t; m.transparent = true; },
+};
+
 interface GLBSceneProps {
   url: string;
   onStats?: (stats: ModelStats) => void;
   onNormalized?: () => void;
+  textureUrls?: Record<string, string>;
 }
 
-function GLBScene({ url, onStats, onNormalized }: GLBSceneProps) {
+function GLBScene({ url, onStats, onNormalized, textureUrls }: GLBSceneProps) {
   const { scene } = useGLTF(url);
   const groupRef = useRef<THREE.Group>(null);
   const doneRef = useRef(false);
 
+  // Normalization — runs once per loaded scene
   useEffect(() => {
     const group = groupRef.current;
     if (!group || doneRef.current) return;
@@ -43,7 +56,6 @@ function GLBScene({ url, onStats, onNormalized }: GLBSceneProps) {
       let meshCount = 0;
       let triCount = 0;
       const materials = new Set<THREE.Material>();
-
       group.traverse((obj) => {
         if ((obj as THREE.Mesh).isMesh) {
           meshCount++;
@@ -55,7 +67,6 @@ function GLBScene({ url, onStats, onNormalized }: GLBSceneProps) {
           else if (mat) materials.add(mat);
         }
       });
-
       onStats({
         meshCount,
         materialCount: materials.size,
@@ -66,9 +77,42 @@ function GLBScene({ url, onStats, onNormalized }: GLBSceneProps) {
   }, [scene, onStats, onNormalized]);
 
   // Reset normalization flag when URL changes
+  useEffect(() => { doneRef.current = false; }, [url]);
+
+  // Texture application — apply PBR textures to all standard materials
+  const textureKey = useMemo(() => JSON.stringify(textureUrls ?? {}), [textureUrls]);
   useEffect(() => {
-    doneRef.current = false;
-  }, [url]);
+    const group = groupRef.current;
+    if (!group || !textureUrls || Object.keys(textureUrls).length === 0) return;
+
+    const loader = new THREE.TextureLoader();
+    const loaded: THREE.Texture[] = [];
+
+    group.traverse((obj) => {
+      if (!(obj as THREE.Mesh).isMesh) return;
+      const mesh = obj as THREE.Mesh;
+      const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+
+      mats.forEach((mat) => {
+        if (!(mat as THREE.MeshStandardMaterial).isMeshStandardMaterial) return;
+        const stdMat = mat as THREE.MeshStandardMaterial;
+
+        Object.entries(textureUrls).forEach(([slot, url]) => {
+          const applyFn = SLOT_MAP[slot];
+          if (!applyFn || !url) return;
+          loader.load(url, (tex) => {
+            tex.flipY = false;
+            loaded.push(tex);
+            applyFn(stdMat, tex);
+            stdMat.needsUpdate = true;
+          });
+        });
+      });
+    });
+
+    return () => { loaded.forEach((t) => t.dispose()); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [textureKey, scene]);
 
   return (
     <group ref={groupRef}>
@@ -103,13 +147,14 @@ interface RealModelViewerProps {
   onStats?: (stats: ModelStats) => void;
   onNormalized?: () => void;
   onError?: () => void;
+  textureUrls?: Record<string, string>;  // Phase 18: PBR texture application
 }
 
-export default function RealModelViewer({ url, onStats, onNormalized, onError }: RealModelViewerProps) {
+export default function RealModelViewer({ url, onStats, onNormalized, onError, textureUrls }: RealModelViewerProps) {
   return (
     <GLBErrorBoundary onError={onError ?? (() => {})}>
       <Suspense fallback={null}>
-        <GLBScene url={url} onStats={onStats} onNormalized={onNormalized} />
+        <GLBScene url={url} onStats={onStats} onNormalized={onNormalized} textureUrls={textureUrls} />
       </Suspense>
     </GLBErrorBoundary>
   );

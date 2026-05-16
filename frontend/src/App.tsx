@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import AnimationPreview from "./pages/AnimationPreview";
 import CreditDashboard from "./pages/CreditDashboard";
 import GeneratedAssets from "./pages/GeneratedAssets";
+import TextureStudio from "./pages/TextureStudio";
 import MaterialStudio from "./pages/MaterialStudio";
 import ProjectManager from "./pages/ProjectManager";
 import ProviderSettings from "./pages/ProviderSettings";
@@ -30,7 +31,8 @@ type Page =
   | "project_library"
   | "credit_dashboard"
   | "provider_settings"
-  | "generated_assets";
+  | "generated_assets"
+  | "texture_studio";
 
 const PIPELINE_STEPS: {
   id: number;
@@ -122,6 +124,13 @@ const PIPELINE_STEPS: {
     icon: "◈",
     description: "Browse, tag, rename, duplicate, and download all registered 3D outputs.",
     page: "generated_assets" as Page,
+  },
+  {
+    id: 13,
+    label: "Texture Studio",
+    icon: "◑",
+    description: "Manage texture maps, PBR channels, and future baking workflows.",
+    page: "texture_studio" as Page,
   },
 ];
 
@@ -324,6 +333,14 @@ export default function App() {
     );
   }
 
+  if (page === "texture_studio") {
+    return (
+      <CreditContext.Provider value={creditContextValue}>
+        <TextureStudio onBack={() => setPage("home")} job={viewerJob} />
+      </CreditContext.Provider>
+    );
+  }
+
   return (
     <CreditContext.Provider value={creditContextValue}>
     <div className="min-h-screen bg-[#0a0a0f] text-slate-100">
@@ -383,7 +400,7 @@ export default function App() {
             </button>
           )}
           <span className="text-xs font-mono px-3 py-1 rounded-full border border-cyan-500/30 text-cyan-400 bg-cyan-500/5">
-            Phase 17 — Viewer Polish
+            Phase 18 — Texture Studio
           </span>
         </div>
       </header>
@@ -436,7 +453,7 @@ export default function App() {
               </span>
             </span>
           </div>
-          <span className="text-xs text-slate-600 font-mono">v1.7.0</span>
+          <span className="text-xs text-slate-600 font-mono">v1.8.0</span>
         </div>
       </main>
     </div>

@@ -18,12 +18,14 @@ from app.routes.materials import router as materials_router
 from app.routes.providers import router as providers_router
 from app.routes.modules import router as modules_router
 from app.routes.assets import router as assets_router
+from app.routes.textures import router as textures_router
 from app.routes.projects import router as projects_router
 from app.routes.rigs import router as rigs_router
 from app.routes.uploads import router as uploads_router
 from app.services.project_context import (
     PROJECT_ROOT,
     get_uploads_dir,
+    get_textures_dir,
     ensure_project_dirs,
 )
 
@@ -45,11 +47,12 @@ _PACKAGES_DIR.mkdir(parents=True, exist_ok=True)
 (PROJECT_ROOT / "exports" / "projects").mkdir(parents=True, exist_ok=True)
 (PROJECT_ROOT / "storage" / "providers").mkdir(parents=True, exist_ok=True)
 (PROJECT_ROOT / "storage" / "assets").mkdir(parents=True, exist_ok=True)
+(PROJECT_ROOT / "storage" / "textures").mkdir(parents=True, exist_ok=True)
 
 app = FastAPI(
     title=settings.APP_NAME,
     description="AI-powered image-to-3D, sculpting, rigging, and animation pipeline studio.",
-    version="1.6.0",
+    version="1.8.0",
 )
 
 app.add_middleware(
@@ -88,6 +91,16 @@ app.include_router(materials_router)
 app.include_router(credits_router)
 app.include_router(providers_router)
 app.include_router(assets_router)
+app.include_router(textures_router)
+
+
+@app.get("/textures/{filename}")
+async def serve_texture(filename: str):
+    """Serve a texture file from the ACTIVE project's textures directory."""
+    path = get_textures_dir() / filename
+    if not path.exists():
+        raise HTTPException(status_code=404, detail="Texture not found.")
+    return FileResponse(str(path))
 
 
 @app.get("/")

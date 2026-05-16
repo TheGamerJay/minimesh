@@ -34,6 +34,7 @@ export interface MeshViewerProps {
   onGlbError?: () => void;
   onGlbNormalized?: () => void;
   gridOpacity?: number;
+  textureUrls?: Record<string, string>;   // Phase 18: PBR texture URLs
 }
 
 // Fills screenshotRef.current with a capture function that works from inside the Canvas
@@ -122,6 +123,7 @@ function SceneContents({
   onModelStats,
   onGlbError,
   onGlbNormalized,
+  textureUrls,
   glbFailed,
 }: MeshViewerProps & { glbFailed: boolean }) {
   const controlsRef = useRef<any>(null);
@@ -146,6 +148,7 @@ function SceneContents({
           onStats={onModelStats}
           onNormalized={onGlbNormalized}
           onError={onGlbError}
+          textureUrls={textureUrls}
         />
       ) : (
         <PlaceholderMesh materialMode={materialMode} materialProfile={materialProfile} />
