@@ -216,3 +216,30 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Node / Frontend
+node_modules/
+dist/
+.next/
+.nuxt/
+.output/
+*.local
+
+# Vite / TypeScript build outputs
+frontend/dist/
+frontend/.vite/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# MiniMesh local storage and exports (keep .gitkeep files)
+storage/*
+!storage/.gitkeep
+exports/*
+!exports/.gitkeep
+
+# OS
+.DS_Store
+Thumbs.db
