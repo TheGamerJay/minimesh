@@ -192,6 +192,43 @@ RodinProvider (name="rodin")       # stub — NotImplementedError
 
 Provider selected via `provider_registry.get_first_available("generation")`. Provider name stored on job for correct polling.
 
+## Model Normalization Layer (Phase 17)
+
+**File:** `frontend/src/components/viewer/RealModelViewer.tsx`
+
+After GLB loads via `useGLTF`, a `useEffect` runs once per URL:
+1. `new THREE.Box3().setFromObject(group)` — computes world-space bounds
+2. `maxDim = max(size.x, size.y, size.z)` → `scale = 2.0 / maxDim`
+3. `group.scale.setScalar(scale)` + `group.position = -center * scale`
+
+Result: model always fits in a 2-unit cube centered at origin. `onNormalized` callback fires after normalization. `onStats` callback returns `{ meshCount, materialCount, triangleEstimate, boundingBoxSize }` gathered by traversing the scene graph.
+
+GLB error boundary (`GLBErrorBoundary`) wraps the Suspense. On any load error, `onError` fires and parent falls back to `PlaceholderMesh`.
+
+## Camera Preset System (Phase 17)
+
+**File:** `frontend/src/components/viewer/MeshViewer.tsx` → `CameraController`
+
+Six named presets defined in `lib/viewerEnvironments.ts`: Front, Back, Left, Right, Top, Iso.
+
+`CameraController` is a scene component that runs a `useFrame` lerp:
+```
+camera.position.lerp(targetPos, 0.1)
+controls.target.lerp(targetLook, 0.1)
+controls.update()
+```
+Transition completes when distance < 0.02 units. Preset clears via `onCameraPresetDone` so re-clicking the same preset works.
+
+## Environment Presets (Phase 17)
+
+**File:** `frontend/src/lib/viewerEnvironments.ts`
+
+Five presets (Studio Dark / Neon Cyan / Purple Void / Sunset / HDR Neutral) each define: background hex color, ambient light (color + intensity), and a list of directional/point lights. `EnvironmentLights` component renders the preset dynamically. `exposure` prop scales all intensities. No HDR files required — all simulated with standard Three.js lights.
+
+Screenshot: `gl.domElement.toDataURL("image/png")` via `useThree`, requires `preserveDrawingBuffer: true` on Canvas. Download triggered by injecting a temporary `<a>` element.
+
+---
+
 ## Asset Registry (Phase 16)
 
 **Files:** `backend/app/models/assets.py`, `backend/app/services/asset_service.py`, `backend/app/routes/assets.py`

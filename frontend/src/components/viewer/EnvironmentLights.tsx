@@ -1,11 +1,40 @@
-export default function EnvironmentLights() {
+import { EnvironmentPreset, ENVIRONMENT_PRESETS } from "../../lib/viewerEnvironments";
+
+interface Props {
+  preset?: EnvironmentPreset;
+  exposure?: number;
+}
+
+export default function EnvironmentLights({ preset = "studio_dark", exposure = 1 }: Props) {
+  const env = ENVIRONMENT_PRESETS[preset];
+  const intensityScale = exposure;
+
   return (
     <>
-      <ambientLight intensity={0.35} />
-      <directionalLight position={[5, 8, 5]} intensity={1.4} castShadow />
-      <directionalLight position={[-4, 3, -4]} intensity={0.5} color="#7c3aed" />
-      <pointLight position={[0, 4, 3]} intensity={0.8} color="#06b6d4" distance={12} />
-      <pointLight position={[2, 1, -2]} intensity={0.3} color="#818cf8" distance={8} />
+      <color attach="background" args={[env.bg]} />
+      <ambientLight color={env.ambient.color} intensity={env.ambient.intensity * intensityScale} />
+      {env.lights.map((light, i) => {
+        if (light.type === "directional") {
+          return (
+            <directionalLight
+              key={i}
+              position={light.position}
+              color={light.color}
+              intensity={light.intensity * intensityScale}
+              castShadow={i === 0}
+            />
+          );
+        }
+        return (
+          <pointLight
+            key={i}
+            position={light.position}
+            color={light.color}
+            intensity={light.intensity * intensityScale}
+            distance={light.distance}
+          />
+        );
+      })}
     </>
   );
 }

@@ -26,8 +26,7 @@ function MaterialCanvas({ profile }: { profile: MaterialProfile | null }) {
         camera={{ position: [0, 1.1, 4.2], fov: 44 }}
         shadows
       >
-        <color attach="background" args={["#0c0c14"]} />
-        <EnvironmentLights />
+        <EnvironmentLights preset="studio_dark" />
         <PlaceholderMesh materialMode="solid" materialProfile={profile} />
         <gridHelper args={[12, 24, "#1e293b", "#0f172a"]} position={[0, -0.42, 0]} />
         <OrbitControls

@@ -383,7 +383,7 @@ export default function App() {
             </button>
           )}
           <span className="text-xs font-mono px-3 py-1 rounded-full border border-cyan-500/30 text-cyan-400 bg-cyan-500/5">
-            Phase 16 — Asset Manager
+            Phase 17 — Viewer Polish
           </span>
         </div>
       </header>
@@ -436,7 +436,7 @@ export default function App() {
               </span>
             </span>
           </div>
-          <span className="text-xs text-slate-600 font-mono">v1.6.0</span>
+          <span className="text-xs text-slate-600 font-mono">v1.7.0</span>
         </div>
       </main>
     </div>
