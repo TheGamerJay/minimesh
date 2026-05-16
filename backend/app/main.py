@@ -20,6 +20,7 @@ from app.routes.modules import router as modules_router
 from app.routes.assets import router as assets_router
 from app.routes.textures import router as textures_router
 from app.routes.bakes import router as bakes_router
+from app.routes.edits import router as edits_router
 from app.routes.projects import router as projects_router
 from app.routes.rigs import router as rigs_router
 from app.routes.uploads import router as uploads_router
@@ -51,11 +52,13 @@ _PACKAGES_DIR.mkdir(parents=True, exist_ok=True)
 (PROJECT_ROOT / "storage" / "textures").mkdir(parents=True, exist_ok=True)
 (PROJECT_ROOT / "storage" / "bakes").mkdir(parents=True, exist_ok=True)
 (PROJECT_ROOT / "exports" / "bakes").mkdir(parents=True, exist_ok=True)
+(PROJECT_ROOT / "storage" / "edits").mkdir(parents=True, exist_ok=True)
+(PROJECT_ROOT / "exports" / "edits").mkdir(parents=True, exist_ok=True)
 
 app = FastAPI(
     title=settings.APP_NAME,
     description="AI-powered image-to-3D, sculpting, rigging, and animation pipeline studio.",
-    version="1.9.0",
+    version="2.0.0",
 )
 
 app.add_middleware(
@@ -96,6 +99,7 @@ app.include_router(providers_router)
 app.include_router(assets_router)
 app.include_router(textures_router)
 app.include_router(bakes_router)
+app.include_router(edits_router)
 
 
 @app.get("/textures/{filename}")

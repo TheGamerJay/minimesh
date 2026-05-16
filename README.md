@@ -6,9 +6,28 @@ Upload reference images. Choose a sculpt style. Generate a production-ready 3D a
 
 ---
 
-## Current Phase: Phase 6 — Export System Foundation
+## Current Phase: Phase 20 — Sculpt / Edit Tools Foundation (v2.0.0)
 
-Browser 3D preview viewer is live using React Three Fiber + drei. After a job completes in the Sculpt Type Selector, click **Open 3D Preview** to open the full-screen 3D viewport. The viewer shows a stylized geometric placeholder mesh with idle rotation, real-time orbit controls, material mode switching (Solid/Wireframe/Toon), auto-rotate, grid toggle, and an inspector panel showing job metadata. Real model loaders (GLB/GLTF/OBJ/FBX) will be wired in future phases. See [docs/PHASES.md](docs/PHASES.md) for the full roadmap.
+Full sculpt workspace with edit operation architecture, transform gizmo, brush system, and edit history timeline. See [docs/PHASES.md](docs/PHASES.md) for the full roadmap.
+
+**Edit routes (Phase 20):**
+
+| Route | Method | Description |
+|-------|--------|-------------|
+| `/api/edits/create` | POST | Create a mock edit operation (sculpt/smooth/inflate/pinch/move/transform/mirror) |
+| `/api/edits` | GET | List edit operations (optional `?asset_id=`) |
+| `/api/edits/{id}` | GET | Get operation status (polls mock provider if non-terminal) |
+
+**Sculpt workspace:**
+- **SculptToolbar** — 6 tool modes: Clay, Smooth, Inflate, Pinch, Move, Mirror
+- **BrushSettingsPanel** — radius, strength, symmetry toggle, falloff (sphere/gaussian/flat)
+- **GizmoOverlay** — R3F transform gizmo (move arrows, rotate rings, scale cubes) — visual only
+- **EditHistoryPanel** — horizontal timeline of past operations with status, undo/redo placeholders
+- **EditOperationPanel** — inspector with Apply button, current settings, last operation status
+
+**Edit operation behavior:** Mock provider simulates queued (0–1s) → processing (1–4s) → completed (≥4s). No real mesh deformation applied. Result JSON written to `exports/edits/{id}/edit_result.json`. History stored at `storage/edits/history.json`.
+
+**Previous phase highlights:** Texture Studio (Phase 18–19), UV & Bake Prep (Phase 19), Generated Asset Registry (Phase 16), Real GLB Viewer (Phase 17), Auto-Rigging (Phase 7), Animation Preview (Phase 8), Material Studio (Phase 12).
 
 ---
 

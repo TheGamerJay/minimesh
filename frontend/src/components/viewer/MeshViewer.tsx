@@ -6,6 +6,7 @@ import EnvironmentLights from "./EnvironmentLights";
 import PlaceholderMesh from "./PlaceholderMesh";
 import RealModelViewer, { ModelStats } from "./RealModelViewer";
 import SkeletonOverlay from "../rig/SkeletonOverlay";
+import GizmoOverlay from "../editing/GizmoOverlay";
 import { RigBone } from "../../lib/rigs";
 import { MaterialProfile } from "../../lib/materials";
 import { EnvironmentPreset, CAMERA_PRESETS } from "../../lib/viewerEnvironments";
@@ -35,6 +36,7 @@ export interface MeshViewerProps {
   onGlbNormalized?: () => void;
   gridOpacity?: number;
   textureUrls?: Record<string, string>;   // Phase 18: PBR texture URLs
+  editMode?: boolean;                      // Phase 20: show gizmo overlay
 }
 
 // Fills screenshotRef.current with a capture function that works from inside the Canvas
@@ -124,6 +126,7 @@ function SceneContents({
   onGlbError,
   onGlbNormalized,
   textureUrls,
+  editMode,
   glbFailed,
 }: MeshViewerProps & { glbFailed: boolean }) {
   const controlsRef = useRef<any>(null);
@@ -157,6 +160,8 @@ function SceneContents({
       {showSkeleton && skeletonBones && skeletonBones.length > 0 && (
         <SkeletonOverlay bones={skeletonBones} />
       )}
+
+      {editMode && <GizmoOverlay visible />}
 
       {showGrid && (
         <gridHelper

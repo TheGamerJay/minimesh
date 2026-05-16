@@ -254,6 +254,50 @@ Frontend: `GeneratedAssets` page — searchable/filterable grid, AssetCard with 
 
 ---
 
+## Edit Operation Layer (Phase 20)
+
+**Files:** `backend/app/models/editing.py`, `backend/app/services/edit_service.py`, `backend/app/routes/edits.py`
+
+```
+EditOperation
+  id, asset_id, operation_type (sculpt|smooth|inflate|pinch|move|transform|mirror)
+  brush_type, strength (0–1), radius (1–100), position[]
+  status (queued|processing|completed|failed)
+  provider ("mock"), message, created_at, updated_at
+
+EditHistoryEntry
+  id, operation_id, asset_id, operation_name, created_at
+```
+
+Storage: `storage/edits/{id}.json` per operation; `storage/edits/history.json` (ordered list, newest first).
+
+MockEditProvider timing: 0–1 s queued, 1–4 s processing (progress %), ≥4 s completed. Writes `exports/edits/{id}/edit_result.json`. Same timestamp-based state machine as bake/rig/animation providers.
+
+Routes: `POST /api/edits/create` (201), `GET /api/edits` (optional `?asset_id=`), `GET /api/edits/{id}`.
+
+## Sculpt Workspace (Phase 20)
+
+**Files:** `frontend/src/pages/SculptStudio.tsx`, `frontend/src/components/editing/`
+
+Layout: left tool+brush panel (w-44) | center MeshViewer | right EditOperationPanel (w-56) | bottom EditHistoryPanel (h-28).
+
+- `SculptToolbar`: 6 tool buttons (Clay / Smooth / Inflate / Pinch / Move / Mirror) with active highlight. Visual selection only — tool choice maps to `operation_type` on create.
+- `BrushSettingsPanel`: radius slider (1–100), strength slider (0–1.0), symmetry toggle (ON/OFF), pressure placeholder (disabled), falloff selector (sphere/gaussian/flat). State lives in SculptStudio only.
+- `GizmoOverlay`: R3F scene component rendering X/Y/Z colored axis lines with cone arrowheads (move), torus rings per axis (rotate), midpoint cubes (scale), origin sphere. Rendered inside `SceneContents` when `editMode` prop is true. Visual only — no real transform logic.
+- `EditOperationPanel`: "Apply Edit Preview" button triggers `createEditOperation()` + 2s polling. Shows current tool/brush settings and last operation status (queued/processing/completed/failed).
+- `EditHistoryPanel`: horizontal scrollable strip of operation cards. Each shows operation_type, brush_type, status (color-coded), strength/radius, timestamp. Disabled Undo/Redo buttons as future-phase placeholders.
+
+## Future Worker Integration (Phase 20 Prep)
+
+The edit service is structured for future Blender/local-worker integration:
+- Each `EditOperation` carries `asset_id` for mesh file lookup
+- `provider` field is extensible (mock → blender_local → cloud_sculpt)
+- `exports/edits/{id}/` output directory ready for real GLB outputs per operation
+- `history.json` ordered stack prepares for undo/redo layer management
+- `position[]` field reserved for future brush stroke coordinates
+
+---
+
 ## UV Analysis Layer (Phase 19)
 
 **Files:** `backend/app/services/uv_service.py`, `backend/app/models/baking.py`

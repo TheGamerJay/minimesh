@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import AnimationPreview from "./pages/AnimationPreview";
+import SculptStudio from "./pages/SculptStudio";
 import CreditDashboard from "./pages/CreditDashboard";
 import GeneratedAssets from "./pages/GeneratedAssets";
 import TextureStudio from "./pages/TextureStudio";
@@ -33,7 +34,8 @@ type Page =
   | "provider_settings"
   | "generated_assets"
   | "texture_studio"
-  | "uv_bake_prep";
+  | "uv_bake_prep"
+  | "sculpt_studio";
 
 const PIPELINE_STEPS: {
   id: number;
@@ -139,6 +141,13 @@ const PIPELINE_STEPS: {
     icon: "⬡",
     description: "Inspect UV maps, validate texture readiness, and queue mock bake jobs.",
     page: "uv_bake_prep" as Page,
+  },
+  {
+    id: 15,
+    label: "Sculpt Studio",
+    icon: "◈",
+    description: "Preview sculpt workflows, edit operations, and future mesh editing pipelines.",
+    page: "sculpt_studio" as Page,
   },
 ];
 
@@ -341,6 +350,14 @@ export default function App() {
     );
   }
 
+  if (page === "sculpt_studio") {
+    return (
+      <CreditContext.Provider value={creditContextValue}>
+        <SculptStudio onBack={() => setPage("home")} job={viewerJob} />
+      </CreditContext.Provider>
+    );
+  }
+
   if (page === "texture_studio" || page === "uv_bake_prep") {
     return (
       <CreditContext.Provider value={creditContextValue}>
@@ -408,7 +425,7 @@ export default function App() {
             </button>
           )}
           <span className="text-xs font-mono px-3 py-1 rounded-full border border-cyan-500/30 text-cyan-400 bg-cyan-500/5">
-            Phase 19 — UV & Bake Prep
+            Phase 20 — Sculpt Studio
           </span>
         </div>
       </header>
@@ -461,7 +478,7 @@ export default function App() {
               </span>
             </span>
           </div>
-          <span className="text-xs text-slate-600 font-mono">v1.9.0</span>
+          <span className="text-xs text-slate-600 font-mono">v2.0.0</span>
         </div>
       </main>
     </div>
