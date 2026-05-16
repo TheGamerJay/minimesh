@@ -32,7 +32,8 @@ type Page =
   | "credit_dashboard"
   | "provider_settings"
   | "generated_assets"
-  | "texture_studio";
+  | "texture_studio"
+  | "uv_bake_prep";
 
 const PIPELINE_STEPS: {
   id: number;
@@ -129,8 +130,15 @@ const PIPELINE_STEPS: {
     id: 13,
     label: "Texture Studio",
     icon: "◑",
-    description: "Manage texture maps, PBR channels, and future baking workflows.",
+    description: "Manage texture maps, assign PBR channels, and preview live texture application.",
     page: "texture_studio" as Page,
+  },
+  {
+    id: 14,
+    label: "UV & Bake Prep",
+    icon: "⬡",
+    description: "Inspect UV maps, validate texture readiness, and queue mock bake jobs.",
+    page: "uv_bake_prep" as Page,
   },
 ];
 
@@ -333,7 +341,7 @@ export default function App() {
     );
   }
 
-  if (page === "texture_studio") {
+  if (page === "texture_studio" || page === "uv_bake_prep") {
     return (
       <CreditContext.Provider value={creditContextValue}>
         <TextureStudio onBack={() => setPage("home")} job={viewerJob} />
@@ -400,7 +408,7 @@ export default function App() {
             </button>
           )}
           <span className="text-xs font-mono px-3 py-1 rounded-full border border-cyan-500/30 text-cyan-400 bg-cyan-500/5">
-            Phase 18 — Texture Studio
+            Phase 19 — UV & Bake Prep
           </span>
         </div>
       </header>
@@ -453,7 +461,7 @@ export default function App() {
               </span>
             </span>
           </div>
-          <span className="text-xs text-slate-600 font-mono">v1.8.0</span>
+          <span className="text-xs text-slate-600 font-mono">v1.9.0</span>
         </div>
       </main>
     </div>

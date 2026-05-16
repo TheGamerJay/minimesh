@@ -254,6 +254,49 @@ Frontend: `GeneratedAssets` page — searchable/filterable grid, AssetCard with 
 
 ---
 
+## UV Analysis Layer (Phase 19)
+
+**Files:** `backend/app/services/uv_service.py`, `backend/app/models/baking.py`
+
+`analyze_uv(asset_id)` checks if the asset's GLB file exists on disk:
+- Real GLB present → `{ has_uvs: true, uv_channel_count: 1, overlapping_uvs: false, estimated_uv_coverage: 82, warnings: [] }`
+- Mock/missing → `{ coverage: 65, warnings: ["UV layout not verified — real GLB not present."] }`
+
+`validate_textures(assigned_textures, available_ids)`:
+- Critical slots: albedo, normal, roughness → warnings if missing (blocks bake readiness)
+- Optional slots: metallic, ao, emissive → suggestions if missing
+- Detects stale texture IDs (deleted textures still assigned) and duplicate slot assignments
+- Returns `{ warnings, suggestions, ready: bool }`
+
+Frontend: `UVInspectorPanel` (coverage bar colored emerald≥75/amber≥50/red<50), `TextureValidationPanel` (Bake Ready / Issues Found badge with grouped warnings + suggestions). Both panels render inside TextureStudio's collapsible UV & Bake bottom section.
+
+---
+
+## Bake Queue System (Phase 19)
+
+**Files:** `backend/app/services/bake_service.py`, `backend/app/services/providers/mock_bake_provider.py`, `backend/app/routes/bakes.py`
+
+```
+BakeJob
+  id, asset_id, status (queued|processing|completed|failed)
+  bake_type (full_pbr|albedo|normal|roughness|ao|emissive)
+  provider ("mock"), output_maps[], progress (0-100)
+  message, error, created_at, updated_at
+
+MockBakeProvider
+  0–2 s   → queued
+  2–6 s   → processing (progress = (elapsed-2)/4 * 100)
+  ≥6 s    → completed (writes exports/bakes/{id}/bake_result.json)
+```
+
+Jobs stored at `storage/bakes/{id}.json`. On every `get_bake_job()` call, if status is non-terminal the mock provider is re-evaluated with current elapsed time. No background thread needed — pure timestamp-based state machine.
+
+Routes: `GET /api/bakes/uv/{asset_id}`, `POST /api/bakes/validate`, `POST /api/bakes/create` (201), `GET /api/bakes` (optional `?asset_id=`), `GET /api/bakes/{id}`.
+
+Frontend: `BakeJobPanel` polls active job every 2 s via `setInterval`, shows progress bar during processing, output_maps tag badges on completion. "Bake Preview" button disabled while poll is active or no asset is selected.
+
+---
+
 ## GLB Loader Pipeline
 
 ```

@@ -8,11 +8,22 @@ import {
   assignTextures,
   textureUrl,
 } from "../lib/textures";
+import {
+  UVAnalysis,
+  TextureValidationResult,
+  BakeJob,
+  getUVAnalysis,
+  validateTextures,
+  listBakeJobs,
+} from "../lib/bakes";
 import { Job } from "../lib/jobs";
 import MeshViewer from "../components/viewer/MeshViewer";
 import TextureLibrary from "../components/textures/TextureLibrary";
 import TextureSlotInspector from "../components/textures/TextureSlotInspector";
 import TextureAssignmentBar from "../components/textures/TextureAssignmentBar";
+import UVInspectorPanel from "../components/textures/UVInspectorPanel";
+import TextureValidationPanel from "../components/textures/TextureValidationPanel";
+import BakeJobPanel from "../components/textures/BakeJobPanel";
 
 interface Props {
   onBack: () => void;
@@ -28,6 +39,15 @@ export default function TextureStudio({ onBack, job }: Props) {
   const [saved, setSaved] = useState(false);
   const savedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Phase 19: UV & Bake state
+  const [showBakePanel, setShowBakePanel] = useState(false);
+  const [uvAnalysis, setUvAnalysis] = useState<UVAnalysis | null>(null);
+  const [uvLoading, setUvLoading] = useState(false);
+  const [validation, setValidation] = useState<TextureValidationResult | null>(null);
+  const [validationLoading, setValidationLoading] = useState(false);
+  const [bakeJobs, setBakeJobs] = useState<BakeJob[]>([]);
+
+  const assetId = job?.asset_id ?? null;
   const glbUrl = job?.glb_path ? `/export-packages/jobs/${job.id}/model.glb` : null;
   const glbLoaded = !!glbUrl && job?.model_downloaded === true;
 
@@ -40,6 +60,37 @@ export default function TextureStudio({ onBack, job }: Props) {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  // Load bake job history on mount
+  useEffect(() => {
+    listBakeJobs(assetId ?? undefined).then(setBakeJobs).catch(() => {});
+  }, [assetId]);
+
+  // Load UV analysis when asset is available
+  useEffect(() => {
+    if (!assetId) { setUvAnalysis(null); return; }
+    setUvLoading(true);
+    getUVAnalysis(assetId)
+      .then(setUvAnalysis)
+      .catch(() => setUvAnalysis(null))
+      .finally(() => setUvLoading(false));
+  }, [assetId]);
+
+  // Run texture validation whenever assignments change
+  const assignedRecord = useMemo(
+    () => Object.fromEntries(Object.entries(assigned).filter(([, v]) => !!v)) as Record<string, string>,
+    [assigned]
+  );
+  const assignedKey = useMemo(() => JSON.stringify(assignedRecord), [assignedRecord]);
+  useEffect(() => {
+    if (Object.keys(assignedRecord).length === 0) { setValidation(null); return; }
+    setValidationLoading(true);
+    validateTextures(assignedRecord)
+      .then(setValidation)
+      .catch(() => setValidation(null))
+      .finally(() => setValidationLoading(false));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [assignedKey]);
 
   // Build id → asset map for quick lookup
   const textureMap = useMemo(() =>
@@ -65,7 +116,6 @@ export default function TextureStudio({ onBack, job }: Props) {
     await deleteTexture(id);
     setTextures((prev) => prev.filter((t) => t.id !== id));
     if (selectedId === id) setSelectedId(null);
-    // Clear from assigned slots
     setAssigned((prev) => {
       const next = { ...prev };
       for (const [slot, tid] of Object.entries(next)) {
@@ -123,11 +173,6 @@ export default function TextureStudio({ onBack, job }: Props) {
           <span className="text-sm text-slate-400">Texture Studio</span>
         </div>
 
-        {/* Status notice */}
-        <div className="ml-4 px-3 py-1 rounded-full border border-yellow-500/20 bg-yellow-500/5 text-[10px] font-mono text-yellow-600 hidden md:block">
-          Preview texture assignment only — UV editing and baking arrive in future phases
-        </div>
-
         <div className="ml-auto flex items-center gap-3">
           {glbLoaded ? (
             <span className="text-[10px] font-mono px-2 py-1 rounded border border-emerald-500/30 text-emerald-400">
@@ -138,7 +183,21 @@ export default function TextureStudio({ onBack, job }: Props) {
               Placeholder
             </span>
           )}
-          <span className="text-xs font-mono text-slate-700">Phase 18</span>
+
+          {/* Phase 19: UV & Bake toggle */}
+          <button
+            onClick={() => setShowBakePanel((v) => !v)}
+            className={[
+              "px-2.5 py-1 rounded text-[10px] font-mono transition-colors border",
+              showBakePanel
+                ? "bg-violet-600/20 text-violet-300 border-violet-500/40"
+                : "bg-gray-800/40 text-slate-500 border-gray-700/30 hover:text-slate-300",
+            ].join(" ")}
+          >
+            UV & Bake{showBakePanel ? " ▲" : " ▼"}
+          </button>
+
+          <span className="text-xs font-mono text-slate-700">Phase 19</span>
         </div>
       </header>
 
@@ -160,10 +219,10 @@ export default function TextureStudio({ onBack, job }: Props) {
           />
         )}
 
-        {/* Center: live viewer */}
+        {/* Center: live viewer + assignment bar + UV/Bake panel */}
         <div className="flex-1 flex flex-col overflow-hidden">
           {/* Canvas */}
-          <div className="flex-1 relative">
+          <div className="flex-1 relative min-h-0">
             <MeshViewer
               materialMode="solid"
               autoRotate={false}
@@ -201,6 +260,22 @@ export default function TextureStudio({ onBack, job }: Props) {
             saving={saving}
             saved={saved}
           />
+
+          {/* Phase 19: UV & Bake panel */}
+          {showBakePanel && (
+            <div className="shrink-0 h-52 border-t border-white/5 flex overflow-hidden">
+              <UVInspectorPanel analysis={uvAnalysis} loading={uvLoading} assetId={assetId} />
+              <TextureValidationPanel validation={validation} loading={validationLoading} />
+              <BakeJobPanel
+                assetId={assetId}
+                jobs={bakeJobs}
+                onJobCreated={(job) => setBakeJobs((prev) => [job, ...prev])}
+                onJobUpdated={(updated) =>
+                  setBakeJobs((prev) => prev.map((j) => (j.id === updated.id ? updated : j)))
+                }
+              />
+            </div>
+          )}
         </div>
 
         {/* Right: slot inspector */}
