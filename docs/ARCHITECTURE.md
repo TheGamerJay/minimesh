@@ -122,6 +122,55 @@ minimesh/
 
 ---
 
+## Provider Registry (Phase 15)
+
+**File:** `backend/app/services/provider_registry.py`
+
+Single source of truth for all provider metadata, state, and priority.
+
+```
+PROVIDER_METADATA  — display_name, description, stub, requires_key, capabilities
+storage/providers/
+  provider_priority.json   — ordered list: ["meshy","tripo","rodin","mock"]
+  provider_settings.json   — per-provider {enabled: bool}
+  health_cache.json        — last test result per provider
+```
+
+Key functions:
+- `load_priority()` / `save_priority()` — read/write fallback chain order
+- `is_enabled(name)` / `set_enabled(name, enabled)` — toggle providers
+- `get_first_available(task)` — walks priority list, returns first usable provider
+- `list_all()` — all providers with state, capabilities, priority_order, cached health
+
+## Health Check Layer (Phase 15)
+
+**File:** `backend/app/services/provider_health_service.py`
+
+- `check_health(provider_name)` → `{provider, status, message, latency_ms}`
+- Statuses: `healthy` | `degraded` | `offline` | `disabled`
+- Mock: always healthy, 0 ms
+- Stubs: always offline ("not yet integrated")
+- Meshy: live HTTP ping to `/openapi/v2/image-to-3d`, measures latency, maps 200/401/429/timeout
+- Result cached to `storage/providers/health_cache.json` for display without re-pinging
+
+## Fallback Chain System (Phase 15)
+
+**File:** `backend/app/services/job_service.py` → `_submit_with_fallback()`
+
+On job creation, walks the priority list:
+1. Skip disabled, stub, or key-less providers
+2. Try `provider.submit(job)`
+3. On success → record `{name}_submitted`, store provider on job, return
+4. On failure → record `{name}_failed`, continue to next provider
+5. Hard fallback → `mock` always succeeds
+
+`job.provider_attempts` stores the full chain, e.g.:
+```
+["meshy_failed", "mock_fallback"]    # Meshy had an error, fell back to mock
+["meshy_submitted"]                  # Normal Meshy success
+["mock_submitted"]                   # No real provider configured
+```
+
 ## Provider Abstraction Layer
 
 **Stack:** Python abstract base class + provider adapters
@@ -137,9 +186,11 @@ BaseProvider (ABC)
 
 MockProvider  (name="mock")        # time-based simulation
 MeshyProvider (name="meshy")       # real HTTP via httpx
+TripoProvider (name="tripo")       # stub — NotImplementedError
+RodinProvider (name="rodin")       # stub — NotImplementedError
 ```
 
-Provider selected at job creation time via `provider_service.get_active_provider_name()`. Key check: `MESHY_API_KEY` env var → meshy; else → mock. Provider name stored on job for correct polling.
+Provider selected via `provider_registry.get_first_available("generation")`. Provider name stored on job for correct polling.
 
 ## GLB Loader Pipeline
 

@@ -42,11 +42,12 @@ _PACKAGES_DIR.mkdir(parents=True, exist_ok=True)
 (PROJECT_ROOT / "storage" / "credits").mkdir(parents=True, exist_ok=True)
 (PROJECT_ROOT / "storage" / "credits" / "ledger").mkdir(parents=True, exist_ok=True)
 (PROJECT_ROOT / "exports" / "projects").mkdir(parents=True, exist_ok=True)
+(PROJECT_ROOT / "storage" / "providers").mkdir(parents=True, exist_ok=True)
 
 app = FastAPI(
     title=settings.APP_NAME,
     description="AI-powered image-to-3D, sculpting, rigging, and animation pipeline studio.",
-    version="1.4.0",
+    version="1.5.0",
 )
 
 app.add_middleware(

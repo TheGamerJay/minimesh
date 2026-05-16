@@ -17,10 +17,12 @@ class Job(BaseModel):
     updated_at: str
     result_path: str | None = None
     error: str | None = None
-    # Phase 14 â€” real provider fields
+    # Phase 14 — real provider fields
     external_job_id: str | None = None
     preview_url: str | None = None
     model_url: str | None = None
     model_downloaded: bool = False
     glb_path: str | None = None
     progress: int = 0
+    # Phase 15 — provider fallback chain
+    provider_attempts: list[str] = []

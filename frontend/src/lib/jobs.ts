@@ -19,6 +19,8 @@ export interface Job {
   model_downloaded?: boolean;
   glb_path?: string | null;
   progress?: number;
+  // Phase 15 — provider fallback chain
+  provider_attempts?: string[];
 }
 
 export async function createJob(): Promise<Job> {

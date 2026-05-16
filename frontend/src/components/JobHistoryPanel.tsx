@@ -66,14 +66,40 @@ export default function JobHistoryPanel({ refreshKey }: { refreshKey: number }) 
             </div>
 
             {/* Meta row */}
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-4 flex-wrap">
               <span className="text-[10px] text-slate-700 font-mono">
                 {new Date(job.created_at).toLocaleString()}
               </span>
               <span className="text-[10px] font-mono text-slate-700">
                 provider: {job.provider}
               </span>
+              {job.provider_attempts && job.provider_attempts.length > 1 && (
+                <span className="text-[10px] font-mono text-amber-600/70" title={job.provider_attempts.join(" → ")}>
+                  {job.provider_attempts.length} attempt{job.provider_attempts.length !== 1 ? "s" : ""}
+                </span>
+              )}
             </div>
+
+            {/* Fallback chain */}
+            {job.provider_attempts && job.provider_attempts.some((a) => a.endsWith("_failed")) && (
+              <div className="flex flex-wrap gap-1 mt-0.5">
+                {job.provider_attempts.map((attempt, i) => (
+                  <span
+                    key={i}
+                    className={[
+                      "text-[9px] font-mono px-1.5 py-0.5 rounded border",
+                      attempt.endsWith("_failed")
+                        ? "border-red-700/40 text-red-500 bg-red-900/10"
+                        : attempt.endsWith("_submitted")
+                        ? "border-emerald-700/40 text-emerald-500 bg-emerald-900/10"
+                        : "border-amber-700/40 text-amber-500 bg-amber-900/10",
+                    ].join(" ")}
+                  >
+                    {attempt}
+                  </span>
+                ))}
+              </div>
+            )}
 
             {/* Result */}
             {job.status === "completed" && job.result_path && (

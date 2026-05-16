@@ -3,6 +3,7 @@ import AnimationPreview from "./pages/AnimationPreview";
 import CreditDashboard from "./pages/CreditDashboard";
 import MaterialStudio from "./pages/MaterialStudio";
 import ProjectManager from "./pages/ProjectManager";
+import ProviderSettings from "./pages/ProviderSettings";
 import QualityDashboard from "./pages/QualityDashboard";
 import RigStudio from "./pages/RigStudio";
 import SculptTypeSelector from "./pages/SculptTypeSelector";
@@ -26,7 +27,8 @@ type Page =
   | "material_studio"
   | "quality_check"
   | "project_library"
-  | "credit_dashboard";
+  | "credit_dashboard"
+  | "provider_settings";
 
 const PIPELINE_STEPS: {
   id: number;
@@ -104,6 +106,13 @@ const PIPELINE_STEPS: {
     icon: "◎",
     description: "Track usage costs, manage your credit wallet, and view transaction history.",
     page: "credit_dashboard" as Page,
+  },
+  {
+    id: 11,
+    label: "Provider Settings",
+    icon: "⬡",
+    description: "Manage AI providers, fallback rules, API keys, and generation health.",
+    page: "provider_settings" as Page,
   },
 ];
 
@@ -294,6 +303,10 @@ export default function App() {
     );
   }
 
+  if (page === "provider_settings") {
+    return <ProviderSettings onBack={() => setPage("home")} />;
+  }
+
   return (
     <CreditContext.Provider value={creditContextValue}>
     <div className="min-h-screen bg-[#0a0a0f] text-slate-100">
@@ -319,18 +332,41 @@ export default function App() {
             </button>
           )}
           {activeProvider && (
-            <span className={[
-              "text-[10px] font-mono px-2.5 py-1 rounded-full border",
-              activeProvider.is_real
-                ? "border-emerald-500/30 text-emerald-400 bg-emerald-500/5"
-                : "border-amber-500/20 text-amber-500/70 bg-amber-500/5",
-            ].join(" ")}>
-              <span className="inline-block w-1.5 h-1.5 rounded-full mr-1.5 align-middle" style={{ backgroundColor: activeProvider.is_real ? "#34d399" : "#f59e0b" }} />
-              {activeProvider.is_real ? "Meshy Connected" : "Mock Provider Active"}
-            </span>
+            <button
+              onClick={() => setPage("provider_settings")}
+              className={[
+                "text-[10px] font-mono px-2.5 py-1 rounded-full border transition-all duration-150",
+                activeProvider.health_status === "healthy"
+                  ? "border-emerald-500/30 text-emerald-400 bg-emerald-500/5 hover:border-emerald-400/60"
+                  : activeProvider.health_status === "degraded"
+                  ? "border-amber-500/30 text-amber-400 bg-amber-500/5 hover:border-amber-400/60"
+                  : activeProvider.is_real
+                  ? "border-red-500/30 text-red-400 bg-red-500/5 hover:border-red-400/60"
+                  : "border-amber-500/20 text-amber-500/70 bg-amber-500/5 hover:border-amber-400/40",
+              ].join(" ")}
+            >
+              <span
+                className="inline-block w-1.5 h-1.5 rounded-full mr-1.5 align-middle"
+                style={{
+                  backgroundColor:
+                    activeProvider.health_status === "healthy" ? "#34d399" :
+                    activeProvider.health_status === "degraded" ? "#f59e0b" :
+                    activeProvider.is_real ? "#f87171" : "#f59e0b",
+                }}
+              />
+              {activeProvider.is_real
+                ? `${activeProvider.provider.charAt(0).toUpperCase() + activeProvider.provider.slice(1)} ${
+                    activeProvider.health_status === "healthy" ? "Healthy" :
+                    activeProvider.health_status === "degraded" ? "Degraded" : "Active"
+                  }`
+                : "Mock Provider Active"}
+              {activeProvider.fallback_provider && (
+                <span className="ml-1 opacity-50">→ {activeProvider.fallback_provider}</span>
+              )}
+            </button>
           )}
           <span className="text-xs font-mono px-3 py-1 rounded-full border border-cyan-500/30 text-cyan-400 bg-cyan-500/5">
-            Phase 14 — Real Providers
+            Phase 15 — Provider Registry
           </span>
         </div>
       </header>
@@ -383,7 +419,7 @@ export default function App() {
               </span>
             </span>
           </div>
-          <span className="text-xs text-slate-600 font-mono">v1.4.0</span>
+          <span className="text-xs text-slate-600 font-mono">v1.5.0</span>
         </div>
       </main>
     </div>

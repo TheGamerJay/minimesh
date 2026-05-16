@@ -15,10 +15,7 @@ def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-def _get_provider():
-    """Return the active provider based on configured API keys."""
-    from app.services.provider_service import get_active_provider_name
-    name = get_active_provider_name()
+def _get_provider_by_name(name: str):
     if name == "meshy":
         from app.services.providers.meshy_provider import MeshyProvider
         return MeshyProvider()
@@ -50,6 +47,51 @@ def _persist_job(job: Job) -> None:
     _job_file(job.id).write_text(job.model_dump_json(indent=2), encoding="utf-8")
 
 
+def _submit_with_fallback(job: Job) -> Job:
+    """Try providers in priority order, falling back on submit errors."""
+    from app.services import provider_registry as reg
+    from app.config import settings
+
+    priority = reg.load_priority()
+    keys = {
+        "meshy": settings.MESHY_API_KEY,
+        "tripo": settings.TRIPO_API_KEY,
+        "rodin": settings.RODIN_API_KEY,
+        "mock": "",
+    }
+    attempts: list[str] = []
+
+    for name in priority:
+        meta = reg.PROVIDER_METADATA.get(name)
+        if not meta:
+            continue
+        if not reg.is_enabled(name):
+            continue
+        if meta["stub"]:
+            continue
+        if not meta["capabilities"].get("generation", False):
+            continue
+        if meta["requires_key"] and not keys.get(name, "").strip():
+            continue
+        try:
+            provider = _get_provider_by_name(name)
+            job.provider = name
+            job = provider.submit(job)
+            attempts.append(f"{name}_submitted")
+            job.provider_attempts = attempts
+            return job
+        except Exception:
+            attempts.append(f"{name}_failed")
+            continue
+
+    # Hard fallback — mock always works
+    attempts.append("mock_fallback")
+    job.provider = "mock"
+    job = MockProvider().submit(job)
+    job.provider_attempts = attempts
+    return job
+
+
 def create_job() -> Job:
     from app.services.project_service import get_or_create_session, get_required_missing_for_mode
     from app.services.generation_service import get_or_create_config
@@ -75,11 +117,9 @@ def create_job() -> Job:
             f"Missing required references for this output type: {label_list}"
         )
 
-    # Charge credits after all validation passes
     pricing = get_pricing()
     spend_credits(pricing.generation_cost, "generation", "create_job", "Generate Draft Mesh")
 
-    provider = _get_provider()
     job_id = str(uuid.uuid4())
     now = _now()
     job = Job(
@@ -90,12 +130,12 @@ def create_job() -> Job:
         rig_intent=config.rig_intent,
         target_quality=config.target_quality,
         texture_style=config.texture_style,
-        provider=provider.name,
+        provider="mock",
         image_count=len(session.images),
         created_at=now,
         updated_at=now,
     )
-    job = provider.submit(job)
+    job = _submit_with_fallback(job)
     _persist_job(job)
     return job
 
@@ -105,12 +145,7 @@ def get_job(job_id: str) -> Job | None:
     if job is None:
         return None
     if job.status not in ("completed", "failed"):
-        # Use the same provider that created the job
-        if job.provider == "meshy":
-            from app.services.providers.meshy_provider import MeshyProvider
-            provider = MeshyProvider()
-        else:
-            provider = MockProvider()
+        provider = _get_provider_by_name(job.provider)
         job = provider.poll(job)
         _persist_job(job)
     return job
@@ -125,11 +160,7 @@ def list_jobs() -> list[Job]:
         try:
             job = Job.model_validate_json(f.read_text(encoding="utf-8"))
             if job.status not in ("completed", "failed"):
-                if job.provider == "meshy":
-                    from app.services.providers.meshy_provider import MeshyProvider
-                    provider = MeshyProvider()
-                else:
-                    provider = MockProvider()
+                provider = _get_provider_by_name(job.provider)
                 job = provider.poll(job)
                 _persist_job(job)
             jobs.append(job)
