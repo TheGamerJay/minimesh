@@ -227,6 +227,8 @@ export default function App() {
   const [activeProject, setActiveProject] = useState<ProjectSummary | null>(null);
   const [creditBalance, setCreditBalance] = useState<number | null>(null);
   const [activeProvider, setActiveProvider] = useState<ActiveProvider | null>(null);
+  const [viewerOverrideGlbUrl, setViewerOverrideGlbUrl] = useState<string | null>(null);
+  const [viewerVersionLabel, setViewerVersionLabel] = useState<string | null>(null);
 
   const refreshCredits = useCallback(() => {
     getWallet()
@@ -249,6 +251,14 @@ export default function App() {
 
   function handleOpenViewer(job: Job) {
     setViewerJob(job);
+    setViewerOverrideGlbUrl(null);
+    setViewerVersionLabel(null);
+    setPage("viewer3d");
+  }
+
+  function handleOpenNormalized(url: string, label: string) {
+    setViewerOverrideGlbUrl(url);
+    setViewerVersionLabel(label);
     setPage("viewer3d");
   }
 
@@ -288,8 +298,10 @@ export default function App() {
       <CreditContext.Provider value={creditContextValue}>
         <Viewer3D
           job={viewerJob}
-          onBack={() => setPage("sculpt")}
+          onBack={() => { setViewerOverrideGlbUrl(null); setViewerVersionLabel(null); setPage("sculpt"); }}
           onOpenRigStudio={handleOpenRigStudio}
+          overrideGlbUrl={viewerOverrideGlbUrl}
+          versionLabel={viewerVersionLabel}
         />
       </CreditContext.Provider>
     );
@@ -354,7 +366,11 @@ export default function App() {
   if (page === "generated_assets") {
     return (
       <CreditContext.Provider value={creditContextValue}>
-        <GeneratedAssets onBack={() => setPage("home")} onOpenViewer={handleOpenViewer} />
+        <GeneratedAssets
+          onBack={() => setPage("home")}
+          onOpenViewer={handleOpenViewer}
+          onOpenNormalized={handleOpenNormalized}
+        />
       </CreditContext.Provider>
     );
   }
@@ -442,7 +458,7 @@ export default function App() {
             </button>
           )}
           <span className="text-xs font-mono px-3 py-1 rounded-full border border-cyan-500/30 text-cyan-400 bg-cyan-500/5">
-            Phase 22 — Blender GLB Inspection
+            Phase 23 — Blender Mesh Normalize
           </span>
         </div>
       </header>

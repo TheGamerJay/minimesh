@@ -17,9 +17,11 @@ interface Viewer3DProps {
   job: Job | null;
   onBack: () => void;
   onOpenRigStudio?: (job: Job) => void;
+  overrideGlbUrl?: string | null;
+  versionLabel?: string | null;
 }
 
-export default function Viewer3D({ job, onBack, onOpenRigStudio }: Viewer3DProps) {
+export default function Viewer3D({ job, onBack, onOpenRigStudio, overrideGlbUrl, versionLabel }: Viewer3DProps) {
   // Existing state
   const [materialMode, setMaterialMode] = useState<MaterialMode>("solid");
   const [autoRotate, setAutoRotate] = useState(false);
@@ -42,9 +44,9 @@ export default function Viewer3D({ job, onBack, onOpenRigStudio }: Viewer3DProps
 
   const screenshotRef = useRef<(() => void) | null>(null);
 
-  const isMock = !job || job.provider === "mock";
-  const glbUrl = job?.glb_path ? `/export-packages/jobs/${job.id}/model.glb` : null;
-  const glbLoaded = !glbError && !!glbUrl && job?.model_downloaded === true;
+  const isMock = !overrideGlbUrl && (!job || job.provider === "mock");
+  const glbUrl = overrideGlbUrl ?? (job?.glb_path ? `/export-packages/jobs/${job.id}/model.glb` : null);
+  const glbLoaded = !glbError && !!glbUrl && (overrideGlbUrl ? true : job?.model_downloaded === true);
 
   const handleModelStats = useCallback((stats: ModelStats) => {
     setModelStats(stats);
@@ -73,6 +75,7 @@ export default function Viewer3D({ job, onBack, onOpenRigStudio }: Viewer3DProps
   else badges.push({ label: "MOCK PREVIEW", color: "yellow" });
   if (glbNormalized) badges.push({ label: "NORMALIZED", color: "cyan" });
   if (turntableActive) badges.push({ label: "TURNTABLE ACTIVE", color: "violet" });
+  if (versionLabel) badges.push({ label: versionLabel, color: "cyan" });
 
   return (
     <div className="h-screen flex flex-col bg-[#0a0a0f] text-slate-100 overflow-hidden">

@@ -4,29 +4,34 @@ import {
   listAssets,
   deleteAsset,
   duplicateAsset,
+  getAsset,
 } from "../lib/assets";
 import { getJob } from "../lib/jobs";
 import { Job } from "../lib/jobs";
 import { GLBInspectionReport, getInspection } from "../lib/inspections";
+import { NormalizeJob, listNormalizeJobs } from "../lib/normalize";
 import AssetCard from "../components/assets/AssetCard";
 import AssetInspector from "../components/assets/AssetInspector";
 import AssetVersionPanel from "../components/assets/AssetVersionPanel";
 import AssetToolbar from "../components/assets/AssetToolbar";
 import InspectionPanel from "../components/assets/InspectionPanel";
+import NormalizePanel from "../components/assets/NormalizePanel";
 
 interface Props {
   onBack: () => void;
   onOpenViewer: (job: Job) => void;
+  onOpenNormalized?: (url: string, label: string) => void;
 }
 
-type InspectorTab = "info" | "versions" | "inspection";
+type InspectorTab = "info" | "versions" | "inspection" | "normalize";
 
-export default function GeneratedAssets({ onBack, onOpenViewer }: Props) {
+export default function GeneratedAssets({ onBack, onOpenViewer, onOpenNormalized }: Props) {
   const [assets, setAssets] = useState<GeneratedAsset[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [inspectorTab, setInspectorTab] = useState<InspectorTab>("info");
   const [inspectionReports, setInspectionReports] = useState<Record<string, GLBInspectionReport>>({});
+  const [normalizeJobs, setNormalizeJobs] = useState<Record<string, NormalizeJob[]>>({});
   const [filterType, setFilterType] = useState("all");
   const [filterProvider, setFilterProvider] = useState("all");
   const [sortBy, setSortBy] = useState("newest");
@@ -64,16 +69,45 @@ export default function GeneratedAssets({ onBack, onOpenViewer }: Props) {
   async function handleSelectAsset(id: string) {
     const newId = id === selectedId ? null : id;
     setSelectedId(newId);
-    if (newId && !inspectionReports[newId]) {
-      try {
-        const r = await getInspection(newId);
-        if (r) setInspectionReports((prev) => ({ ...prev, [newId]: r }));
-      } catch {}
+    if (newId) {
+      if (!inspectionReports[newId]) {
+        try {
+          const r = await getInspection(newId);
+          if (r) setInspectionReports((prev) => ({ ...prev, [newId]: r }));
+        } catch {}
+      }
+      if (!normalizeJobs[newId]) {
+        try {
+          const jobs = await listNormalizeJobs(newId);
+          setNormalizeJobs((prev) => ({ ...prev, [newId]: jobs }));
+        } catch {}
+      }
     }
   }
 
   function handleInspectionRefresh(report: GLBInspectionReport) {
     setInspectionReports((prev) => ({ ...prev, [report.asset_id]: report }));
+  }
+
+  function handleNormalizeJobCreated(job: NormalizeJob) {
+    setNormalizeJobs((prev) => ({
+      ...prev,
+      [job.asset_id]: [job, ...(prev[job.asset_id] ?? [])],
+    }));
+    setInspectorTab("normalize");
+  }
+
+  function handleNormalizeJobUpdate(job: NormalizeJob) {
+    setNormalizeJobs((prev) => ({
+      ...prev,
+      [job.asset_id]: (prev[job.asset_id] ?? []).map((j) => (j.id === job.id ? job : j)),
+    }));
+    // Refresh the asset to pick up new version
+    if (job.status === "completed") {
+      getAsset(job.asset_id)
+        .then((updated) => setAssets((prev) => prev.map((a) => (a.id === updated.id ? updated : a))))
+        .catch(() => {});
+    }
   }
 
   async function handleOpenViewer(asset: GeneratedAsset) {
@@ -201,17 +235,17 @@ export default function GeneratedAssets({ onBack, onOpenViewer }: Props) {
 
             {/* Tabs */}
             <div className="flex border-b border-gray-800">
-              {(["info", "versions", "inspection"] as InspectorTab[]).map((tab) => (
+              {(["info", "versions", "inspection", "normalize"] as InspectorTab[]).map((tab) => (
                 <button
                   key={tab}
                   onClick={() => setInspectorTab(tab)}
-                  className={`flex-1 py-2 text-xs font-medium transition-colors ${
+                  className={`flex-1 py-2 text-[11px] font-medium transition-colors ${
                     inspectorTab === tab
                       ? "text-violet-400 border-b border-violet-500"
                       : "text-gray-500 hover:text-gray-300"
                   }`}
                 >
-                  {tab === "info" ? "Info" : tab === "versions" ? "Versions" : "Inspect"}
+                  {tab === "info" ? "Info" : tab === "versions" ? "Versions" : tab === "inspection" ? "Inspect" : "Normalize"}
                 </button>
               ))}
             </div>
@@ -220,12 +254,29 @@ export default function GeneratedAssets({ onBack, onOpenViewer }: Props) {
               {inspectorTab === "info" ? (
                 <AssetInspector asset={selectedAsset} onChange={updateAsset} />
               ) : inspectorTab === "versions" ? (
-                <AssetVersionPanel asset={selectedAsset} />
-              ) : (
+                <AssetVersionPanel
+                  asset={selectedAsset}
+                  onOpenVersion={onOpenNormalized ? (_fp, label) => {
+                    const completedJob = (normalizeJobs[selectedAsset.id] ?? []).find(j => j.status === "completed");
+                    if (completedJob) {
+                      onOpenNormalized(`/export-packages/normalized/${completedJob.id}/normalized.glb`, label);
+                    }
+                  } : undefined}
+                />
+              ) : inspectorTab === "inspection" ? (
                 <InspectionPanel
                   assetId={selectedAsset.id}
                   report={inspectionReports[selectedAsset.id] ?? null}
                   onRefresh={handleInspectionRefresh}
+                />
+              ) : (
+                <NormalizePanel
+                  assetId={selectedAsset.id}
+                  inspectionReport={inspectionReports[selectedAsset.id] ?? null}
+                  jobs={normalizeJobs[selectedAsset.id] ?? []}
+                  onJobCreated={handleNormalizeJobCreated}
+                  onJobUpdate={handleNormalizeJobUpdate}
+                  onOpenNormalized={onOpenNormalized ? (url) => onOpenNormalized(url, "NORMALIZED") : undefined}
                 />
               )}
             </div>
@@ -244,6 +295,14 @@ export default function GeneratedAssets({ onBack, onOpenViewer }: Props) {
                 className="w-full py-2 rounded bg-gray-700 hover:bg-gray-600 text-gray-200 text-sm font-medium transition-colors"
               >
                 {inspectionReports[selectedAsset.id] ? "View Inspection" : "Run Inspection"}
+              </button>
+              <button
+                onClick={() => setInspectorTab("normalize")}
+                className="w-full py-2 rounded bg-gray-700 hover:bg-gray-600 text-gray-200 text-sm font-medium transition-colors"
+              >
+                {(normalizeJobs[selectedAsset.id] ?? []).some(j => j.status === "completed")
+                  ? "View Normalized"
+                  : "Normalize Asset"}
               </button>
               {selectedAsset.provider !== "mock" && (
                 <a

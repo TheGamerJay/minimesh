@@ -315,6 +315,102 @@ Subprocess safety guarantees:
 
 ---
 
+## Normalize Pipeline (Phase 23)
+
+**Files:** `backend/app/models/normalize.py`, `backend/app/services/normalize_service.py`, `backend/app/routes/normalize.py`, `workers/blender_normalize.py`
+
+### NormalizeJob Data Model
+
+```
+NormalizeJob
+  id, asset_id, source_version, output_version
+  status (queued | processing | completed | failed)
+  provider ("blender-normalize" | "normalize-fallback")
+  normalization_scale (float)
+  original_bounds: { width, height, depth, max_dim }
+  normalized_bounds: { width, height, depth }
+  message, fallback_normalized (bool)
+  created_at, updated_at
+```
+
+Storage: `storage/normalize/{job_id}.json`. Output GLB: `exports/normalized/{job_id}/normalized.glb`. Report: `exports/normalized/{job_id}/normalize_report.json`.
+
+### Blender Normalize Script
+
+`workers/blender_normalize.py` is invoked as:
+```
+blender --background --python workers/blender_normalize.py -- <glb_path> <output_glb> <report_json>
+```
+
+Script enforces `glb_path != output_glb` (never overwrites source). Inside:
+1. `bpy.ops.wm.read_factory_settings(use_empty=True)` + `import_scene.gltf`
+2. Computes world-space bounding box across all `MESH` type objects
+3. `center = (min_v + max_v) / 2`, `scale = 2.0 / max_dim`
+4. All root objects (parent=None): `location = (location - center) * scale`, `scale *= scale_factor`
+5. `transform_apply(location, rotation, scale)` on mesh objects only (safe — skips armatures)
+6. Exports with `export_scene.gltf(format=GLB)` to output path
+7. Writes `normalize_report.json` with `normalization_scale`, `original_bounds`, `normalized_bounds`
+
+### Versioned Asset Workflow
+
+Normalized outputs become new `AssetVersion` entries via `asset_service.register_new_version()`:
+
+```
+v1 = original Meshy/mock output   (provider: "mock" | "meshy")
+v2 = normalized Blender output    (provider: "blender-normalize")
+v3 = re-normalize or next edit    (provider: ...)
+```
+
+The `versions[]` list on `GeneratedAsset` stores all prior versions. Normalization never modifies the original file — the output is always a new path under `exports/normalized/`.
+
+### Fallback Normalization
+
+When Blender is unavailable or the source GLB doesn't exist on disk:
+- `shutil.copy2(source, output)` creates a byte-identical copy
+- `provider = "normalize-fallback"`, `fallback_normalized = True`
+- Still registers as a new asset version — original preserved
+
+### Blender Bridge Extension
+
+`run_glb_normalize(glb_path, output_glb, report_json, script_path, timeout=120)` → `(bool, stdout, stderr)`:
+- Same safety guarantees as `run_glb_inspection` (`shell=False`, explicit timeout, error type handling)
+
+### Routes
+
+```
+POST /api/normalize/run/{asset_id}    → NormalizeJob (201, starts background thread)
+GET  /api/normalize/{job_id}          → NormalizeJob
+GET  /api/normalize?asset_id=...      → list[NormalizeJob]
+```
+
+### Frontend Normalize UI
+
+**NormalizePanel** (`frontend/src/components/assets/NormalizePanel.tsx`):
+- Disclaimer banner: "Normalization creates a non-destructive versioned copy. Original assets are preserved."
+- Current bounds from `GLBInspectionReport` (if available)
+- Target info: 2-unit bounding cube, world origin, Blender transform+apply method
+- "Normalize Asset" / "Re-normalize" button
+
+**NormalizeJobPanel** (`frontend/src/components/assets/NormalizeJobPanel.tsx`):
+- Status badge with `animate-pulse` for queued/processing
+- BLENDER (violet) or FALLBACK COPY (amber) badge on complete
+- Original → Normalized bounds comparison; scale factor display
+- "Open Normalized in Viewer" button → `normalizedGlbUrl(job)` → passed to viewer
+- 2s polling until terminal status; auto-clears interval
+
+**Version Switching in Viewer:**
+- `Viewer3D` accepts `overrideGlbUrl?: string | null` and `versionLabel?: string | null`
+- When `overrideGlbUrl` is set: uses it as the GLB URL, bypasses `isMock` check, shows `versionLabel` as an extra header badge
+- `App.tsx`: `viewerOverrideGlbUrl` + `viewerVersionLabel` state; `handleOpenNormalized(url, label)` sets both and navigates to viewer; `handleOpenViewer` clears them
+
+**AssetVersionPanel upgrades:**
+- ORIGINAL badge (gray) for non-normalize providers
+- NORMALIZED badge (cyan) for `blender-normalize`
+- FALLBACK badge (amber) for `normalize-fallback`
+- "Open in Viewer" button for normalized versions
+
+---
+
 ## Inspection Pipeline (Phase 22)
 
 **Files:** `backend/app/models/inspection.py`, `backend/app/services/inspection_service.py`, `backend/app/routes/inspections.py`, `workers/blender_inspect.py`

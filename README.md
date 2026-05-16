@@ -6,9 +6,17 @@ Upload reference images. Choose a sculpt style. Generate a production-ready 3D a
 
 ---
 
-## Current Phase: Phase 22 — Real Blender GLB Inspection + Metadata Extraction (v2.2.0)
+## Current Phase: Phase 23 — Real Blender Mesh Normalize Worker (v2.3.0)
 
-Blender headless GLB inspection using `bpy`. Extracts true mesh count, triangle count, materials, UVs, armature, animations, and bounding box. Falls back gracefully when Blender is unavailable. See [docs/PHASES.md](docs/PHASES.md) for the full roadmap.
+Non-destructive Blender GLB normalization — centers at world origin, scales to 2-unit bounding cube, applies transforms, registers as a new asset version. Falls back to file copy when Blender is unavailable. See [docs/PHASES.md](docs/PHASES.md) for the full roadmap.
+
+**Normalize routes (Phase 23):**
+
+| Route | Method | Description |
+|-------|--------|-------------|
+| `/api/normalize/run/{asset_id}` | POST | Start normalize job (creates versioned GLB copy) |
+| `/api/normalize/{job_id}` | GET | Get normalize job status |
+| `/api/normalize` | GET | List all normalize jobs (`?asset_id=` filter) |
 
 **Inspection routes (Phase 22):**
 
@@ -25,6 +33,14 @@ Blender headless GLB inspection using `bpy`. Extracts true mesh count, triangle 
 | `/api/workers/tasks/create` | POST | Queue a worker task (glb_inspect / mesh_normalize / uv_check / mock_bake / mock_edit / export_prepare) |
 | `/api/workers/tasks` | GET | List all worker tasks |
 | `/api/workers/tasks/{id}` | GET | Get task status + logs |
+
+**Normalization behavior:**
+- Original GLB is **never modified**. Output always goes to `exports/normalized/{job_id}/normalized.glb`
+- On completion, registers as a new `AssetVersion` (v2, v3…) via asset registry
+- When Blender unavailable: fallback creates a byte-identical copy and marks `fallback_normalized: true`
+- Normalized version can be opened directly in the 3D Viewer from the Normalize or Versions tab
+
+**Normalization script:** `workers/blender_normalize.py` centers the scene bounding box at world origin, applies a uniform scale so the model fits a 2-unit cube, applies mesh transforms, and exports as GLB.
 
 **Blender setup:**
 ```env
