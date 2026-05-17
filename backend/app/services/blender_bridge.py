@@ -92,6 +92,49 @@ def invalidate_cache() -> None:
     _cache_time = 0.0
 
 
+def run_thumbnail_render(
+    glb_path: str,
+    output_png: str,
+    script_path: str,
+    render_type: str = "preview",
+    timeout: int = 120,
+) -> tuple[bool, str, str]:
+    """
+    Run blender_thumbnail.py headlessly.
+    Returns (success, stdout, stderr).
+    """
+    info = detect()
+    if not info["found"]:
+        return False, "", "Blender not available"
+
+    cmd = [
+        info["path"],
+        "--background",
+        "--python", script_path,
+        "--",
+        glb_path,
+        output_png,
+        render_type,
+    ]
+    try:
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            shell=False,
+        )
+        return result.returncode == 0, result.stdout, result.stderr
+    except subprocess.TimeoutExpired:
+        return False, "", f"ERROR: Blender timed out after {timeout}s"
+    except FileNotFoundError as e:
+        return False, "", f"ERROR: Blender executable not found — {e}"
+    except PermissionError as e:
+        return False, "", f"ERROR: Permission denied — {e}"
+    except Exception as e:
+        return False, "", f"ERROR: Unexpected exception — {e}"
+
+
 def run_glb_normalize(
     glb_path: str,
     output_glb: str,

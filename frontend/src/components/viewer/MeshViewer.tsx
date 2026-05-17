@@ -31,6 +31,7 @@ export interface MeshViewerProps {
   cameraPreset?: string | null;
   onCameraPresetDone?: () => void;
   screenshotRef?: MutableRefObject<(() => void) | null>;
+  captureRef?: MutableRefObject<(() => string) | null>;
   onModelStats?: (stats: ModelStats) => void;
   onGlbError?: () => void;
   onGlbNormalized?: () => void;
@@ -54,6 +55,16 @@ function ScreenshotCapture({ screenshotRef }: { screenshotRef: MutableRefObject<
     };
     return () => { screenshotRef.current = null; };
   }, [gl, screenshotRef]);
+  return null;
+}
+
+// Fills captureRef.current with a function that returns the canvas data URL
+function CaptureCapture({ captureRef }: { captureRef: MutableRefObject<(() => string) | null> }) {
+  const { gl } = useThree();
+  useEffect(() => {
+    captureRef.current = () => gl.domElement.toDataURL("image/png");
+    return () => { captureRef.current = null; };
+  }, [gl, captureRef]);
   return null;
 }
 
@@ -122,6 +133,7 @@ function SceneContents({
   cameraPreset,
   onCameraPresetDone,
   screenshotRef,
+  captureRef,
   onModelStats,
   onGlbError,
   onGlbNormalized,
@@ -190,6 +202,7 @@ function SceneContents({
       )}
 
       {screenshotRef && <ScreenshotCapture screenshotRef={screenshotRef} />}
+      {captureRef && <CaptureCapture captureRef={captureRef} />}
     </>
   );
 }

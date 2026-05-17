@@ -6,9 +6,18 @@ Upload reference images. Choose a sculpt style. Generate a production-ready 3D a
 
 ---
 
-## Current Phase: Phase 23 — Real Blender Mesh Normalize Worker (v2.3.0)
+## Current Phase: Phase 24 — Real Blender Thumbnail Renderer (v2.4.0)
 
-Non-destructive Blender GLB normalization — centers at world origin, scales to 2-unit bounding cube, applies transforms, registers as a new asset version. Falls back to file copy when Blender is unavailable. See [docs/PHASES.md](docs/PHASES.md) for the full roadmap.
+Headless Blender thumbnail rendering from GLB files — Workbench engine, three-point lighting, 512×512 PNG with transparent background. Viewer "Capture as Thumbnail" captures the live canvas. Thumbnails auto-trigger after normalization. See [docs/PHASES.md](docs/PHASES.md) for the full roadmap.
+
+**Thumbnail routes (Phase 24):**
+
+| Route | Method | Description |
+|-------|--------|-------------|
+| `/api/thumbnails/render/{asset_id}` | POST | Start Blender thumbnail render (`?render_type=preview\|turntable\|material_preview`) |
+| `/api/thumbnails/capture/{asset_id}` | POST | Save viewer canvas capture as thumbnail (`body: {data_url}`) |
+| `/api/thumbnails/{job_id}` | GET | Get thumbnail job status |
+| `/api/thumbnails` | GET | List thumbnail jobs (`?asset_id=` filter) |
 
 **Normalize routes (Phase 23):**
 
@@ -25,33 +34,26 @@ Non-destructive Blender GLB normalization — centers at world origin, scales to
 | `/api/inspections/run/{asset_id}` | POST | Run GLB inspection (Blender if available, fallback otherwise) |
 | `/api/inspections/{asset_id}` | GET | Get latest inspection report |
 
-**Worker routes (Phase 21):**
+**Thumbnail behavior:**
+- Uses `BLENDER_WORKBENCH` engine — reliable in headless environments without GPU/display
+- Thumbnails stored at `exports/thumbnails/{job_id}/thumbnail.png`
+- `asset.thumbnail` field set on completion — AssetCard and ThumbnailRenderPanel display it
+- Fallback: uses `asset.preview_image` when Blender unavailable
+- Auto-trigger: normalize completion automatically queues a `preview` thumbnail render
 
-| Route | Method | Description |
-|-------|--------|-------------|
-| `/api/workers/health` | GET | Worker health + Blender detection status |
-| `/api/workers/tasks/create` | POST | Queue a worker task (glb_inspect / mesh_normalize / uv_check / mock_bake / mock_edit / export_prepare) |
-| `/api/workers/tasks` | GET | List all worker tasks |
-| `/api/workers/tasks/{id}` | GET | Get task status + logs |
-
-**Normalization behavior:**
-- Original GLB is **never modified**. Output always goes to `exports/normalized/{job_id}/normalized.glb`
-- On completion, registers as a new `AssetVersion` (v2, v3…) via asset registry
-- When Blender unavailable: fallback creates a byte-identical copy and marks `fallback_normalized: true`
-- Normalized version can be opened directly in the 3D Viewer from the Normalize or Versions tab
-
-**Normalization script:** `workers/blender_normalize.py` centers the scene bounding box at world origin, applies a uniform scale so the model fits a 2-unit cube, applies mesh transforms, and exports as GLB.
+**Capture as Thumbnail:**
+- "Capture as Thumbnail" button in Viewer3D header (visible when a real GLB is loaded for an asset)
+- Extracts the live Three.js canvas via `gl.domElement.toDataURL` and POSTs to `/api/thumbnails/capture/{asset_id}`
+- Saved to `exports/thumbnails/captures/{asset_id}/thumbnail.png`
 
 **Blender setup:**
 ```env
 # backend/.env
 BLENDER_PATH=C:/Program Files/Blender Foundation/Blender 4.2/blender.exe
 ```
-If `BLENDER_PATH` is not set, the worker and inspection pipeline auto-detect Blender via `PATH` and common install locations. If not found, inspection returns a fallback estimate clearly labeled `fallback_estimate: true`.
+If `BLENDER_PATH` is not set, the worker pipeline auto-detects Blender via `PATH` and common install locations. If Blender is not found, thumbnail render marks `fallback: true` and uses the provider preview image.
 
-**Inspection script:** `workers/blender_inspect.py` is the headless Blender script. It clears the scene, imports the GLB, counts meshes/triangles/materials, detects UVs/armature/animations, and computes the world-space bounding box. Output is written to `storage/inspections/{asset_id}_raw.json` and merged into a `GLBInspectionReport`.
-
-**Previous phase highlights:** Local Worker + Blender Bridge (Phase 21), Sculpt Studio + Edit Tools (Phase 20), UV & Bake Prep (Phase 19), Texture Pipeline (Phase 18), Real GLB Viewer (Phase 17), Asset Registry (Phase 16).
+**Previous phase highlights:** Mesh Normalize Worker (Phase 23), GLB Inspection (Phase 22), Local Worker + Blender Bridge (Phase 21), Sculpt Studio (Phase 20), UV & Bake Prep (Phase 19), Texture Pipeline (Phase 18), Real GLB Viewer (Phase 17), Asset Registry (Phase 16).
 
 ---
 

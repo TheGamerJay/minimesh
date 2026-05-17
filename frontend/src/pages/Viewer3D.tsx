@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback } from "react";
 import ExportPanel from "../components/ExportPanel";
 import MeshViewer from "../components/viewer/MeshViewer";
+import { captureViewerThumbnail } from "../lib/thumbnails";
 import ModelStatsPanel from "../components/viewer/ModelStatsPanel";
 import ViewerInspector from "../components/viewer/ViewerInspector";
 import ViewerSettingsPanel from "../components/viewer/ViewerSettingsPanel";
@@ -43,6 +44,8 @@ export default function Viewer3D({ job, onBack, onOpenRigStudio, overrideGlbUrl,
   const [showStats, setShowStats] = useState(false);
 
   const screenshotRef = useRef<(() => void) | null>(null);
+  const captureRef = useRef<(() => string) | null>(null);
+  const [capturingThumb, setCapturingThumb] = useState(false);
 
   const isMock = !overrideGlbUrl && (!job || job.provider === "mock");
   const glbUrl = overrideGlbUrl ?? (job?.glb_path ? `/export-packages/jobs/${job.id}/model.glb` : null);
@@ -67,6 +70,19 @@ export default function Viewer3D({ job, onBack, onOpenRigStudio, overrideGlbUrl,
   const handleCameraPresetDone = useCallback(() => {
     setCameraPreset(null);
   }, []);
+
+  async function handleCaptureAsThumbnail() {
+    const assetId = job?.asset_id;
+    if (!assetId || !captureRef.current) return;
+    setCapturingThumb(true);
+    try {
+      const dataUrl = captureRef.current();
+      await captureViewerThumbnail(assetId, dataUrl);
+    } catch {
+      // silently fail — thumbnail capture is non-critical
+    }
+    setCapturingThumb(false);
+  }
 
   // State badges row
   const badges: { label: string; color: string }[] = [];
@@ -152,6 +168,16 @@ export default function Viewer3D({ job, onBack, onOpenRigStudio, overrideGlbUrl,
             Providers
           </button>
 
+          {job?.asset_id && glbLoaded && (
+            <button
+              onClick={handleCaptureAsThumbnail}
+              disabled={capturingThumb}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-cyan-500/30 text-cyan-400 text-xs font-semibold hover:border-cyan-400/50 hover:bg-cyan-500/5 transition-all disabled:opacity-50"
+            >
+              {capturingThumb ? "Saving…" : "Capture as Thumbnail"}
+            </button>
+          )}
+
           {job?.status === "completed" && onOpenRigStudio && (
             <button
               onClick={() => onOpenRigStudio(job)}
@@ -161,7 +187,7 @@ export default function Viewer3D({ job, onBack, onOpenRigStudio, overrideGlbUrl,
             </button>
           )}
 
-          <span className="text-xs font-mono text-slate-700">Phase 17</span>
+          <span className="text-xs font-mono text-slate-700">Phase 24</span>
         </div>
       </header>
 
@@ -229,6 +255,7 @@ export default function Viewer3D({ job, onBack, onOpenRigStudio, overrideGlbUrl,
               cameraPreset={cameraPreset}
               onCameraPresetDone={handleCameraPresetDone}
               screenshotRef={screenshotRef}
+              captureRef={captureRef}
               onModelStats={handleModelStats}
               onGlbError={handleGlbError}
               onGlbNormalized={handleGlbNormalized}

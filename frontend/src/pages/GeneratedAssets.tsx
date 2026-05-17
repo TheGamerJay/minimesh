@@ -10,12 +10,14 @@ import { getJob } from "../lib/jobs";
 import { Job } from "../lib/jobs";
 import { GLBInspectionReport, getInspection } from "../lib/inspections";
 import { NormalizeJob, listNormalizeJobs } from "../lib/normalize";
+import { ThumbnailRenderJob, listThumbnailJobs } from "../lib/thumbnails";
 import AssetCard from "../components/assets/AssetCard";
 import AssetInspector from "../components/assets/AssetInspector";
 import AssetVersionPanel from "../components/assets/AssetVersionPanel";
 import AssetToolbar from "../components/assets/AssetToolbar";
 import InspectionPanel from "../components/assets/InspectionPanel";
 import NormalizePanel from "../components/assets/NormalizePanel";
+import ThumbnailRenderPanel from "../components/assets/ThumbnailRenderPanel";
 
 interface Props {
   onBack: () => void;
@@ -23,7 +25,7 @@ interface Props {
   onOpenNormalized?: (url: string, label: string) => void;
 }
 
-type InspectorTab = "info" | "versions" | "inspection" | "normalize";
+type InspectorTab = "info" | "versions" | "inspection" | "normalize" | "thumbnail";
 
 export default function GeneratedAssets({ onBack, onOpenViewer, onOpenNormalized }: Props) {
   const [assets, setAssets] = useState<GeneratedAsset[]>([]);
@@ -32,6 +34,7 @@ export default function GeneratedAssets({ onBack, onOpenViewer, onOpenNormalized
   const [inspectorTab, setInspectorTab] = useState<InspectorTab>("info");
   const [inspectionReports, setInspectionReports] = useState<Record<string, GLBInspectionReport>>({});
   const [normalizeJobs, setNormalizeJobs] = useState<Record<string, NormalizeJob[]>>({});
+  const [thumbnailJobs, setThumbnailJobs] = useState<Record<string, ThumbnailRenderJob[]>>({});
   const [filterType, setFilterType] = useState("all");
   const [filterProvider, setFilterProvider] = useState("all");
   const [sortBy, setSortBy] = useState("newest");
@@ -82,6 +85,12 @@ export default function GeneratedAssets({ onBack, onOpenViewer, onOpenNormalized
           setNormalizeJobs((prev) => ({ ...prev, [newId]: jobs }));
         } catch {}
       }
+      if (!thumbnailJobs[newId]) {
+        try {
+          const jobs = await listThumbnailJobs(newId);
+          setThumbnailJobs((prev) => ({ ...prev, [newId]: jobs }));
+        } catch {}
+      }
     }
   }
 
@@ -95,6 +104,27 @@ export default function GeneratedAssets({ onBack, onOpenViewer, onOpenNormalized
       [job.asset_id]: [job, ...(prev[job.asset_id] ?? [])],
     }));
     setInspectorTab("normalize");
+  }
+
+  function handleThumbnailJobCreated(job: ThumbnailRenderJob) {
+    setThumbnailJobs((prev) => ({
+      ...prev,
+      [job.asset_id]: [job, ...(prev[job.asset_id] ?? [])],
+    }));
+    setInspectorTab("thumbnail");
+  }
+
+  function handleThumbnailJobUpdate(job: ThumbnailRenderJob) {
+    setThumbnailJobs((prev) => ({
+      ...prev,
+      [job.asset_id]: (prev[job.asset_id] ?? []).map((j) => (j.id === job.id ? job : j)),
+    }));
+    // Refresh asset to pick up new thumbnail
+    if (job.status === "completed") {
+      getAsset(job.asset_id)
+        .then((updated) => setAssets((prev) => prev.map((a) => (a.id === updated.id ? updated : a))))
+        .catch(() => {});
+    }
   }
 
   function handleNormalizeJobUpdate(job: NormalizeJob) {
@@ -235,7 +265,7 @@ export default function GeneratedAssets({ onBack, onOpenViewer, onOpenNormalized
 
             {/* Tabs */}
             <div className="flex border-b border-gray-800">
-              {(["info", "versions", "inspection", "normalize"] as InspectorTab[]).map((tab) => (
+              {(["info", "versions", "inspection", "normalize", "thumbnail"] as InspectorTab[]).map((tab) => (
                 <button
                   key={tab}
                   onClick={() => setInspectorTab(tab)}
@@ -245,7 +275,7 @@ export default function GeneratedAssets({ onBack, onOpenViewer, onOpenNormalized
                       : "text-gray-500 hover:text-gray-300"
                   }`}
                 >
-                  {tab === "info" ? "Info" : tab === "versions" ? "Versions" : tab === "inspection" ? "Inspect" : "Normalize"}
+                  {tab === "info" ? "Info" : tab === "versions" ? "Versions" : tab === "inspection" ? "Inspect" : tab === "normalize" ? "Normalize" : "Thumb"}
                 </button>
               ))}
             </div>
@@ -269,7 +299,7 @@ export default function GeneratedAssets({ onBack, onOpenViewer, onOpenNormalized
                   report={inspectionReports[selectedAsset.id] ?? null}
                   onRefresh={handleInspectionRefresh}
                 />
-              ) : (
+              ) : inspectorTab === "normalize" ? (
                 <NormalizePanel
                   assetId={selectedAsset.id}
                   inspectionReport={inspectionReports[selectedAsset.id] ?? null}
@@ -277,6 +307,13 @@ export default function GeneratedAssets({ onBack, onOpenViewer, onOpenNormalized
                   onJobCreated={handleNormalizeJobCreated}
                   onJobUpdate={handleNormalizeJobUpdate}
                   onOpenNormalized={onOpenNormalized ? (url) => onOpenNormalized(url, "NORMALIZED") : undefined}
+                />
+              ) : (
+                <ThumbnailRenderPanel
+                  asset={selectedAsset}
+                  jobs={thumbnailJobs[selectedAsset.id] ?? []}
+                  onJobCreated={handleThumbnailJobCreated}
+                  onJobUpdate={handleThumbnailJobUpdate}
                 />
               )}
             </div>
@@ -303,6 +340,14 @@ export default function GeneratedAssets({ onBack, onOpenViewer, onOpenNormalized
                 {(normalizeJobs[selectedAsset.id] ?? []).some(j => j.status === "completed")
                   ? "View Normalized"
                   : "Normalize Asset"}
+              </button>
+              <button
+                onClick={() => setInspectorTab("thumbnail")}
+                className="w-full py-2 rounded bg-gray-700 hover:bg-gray-600 text-gray-200 text-sm font-medium transition-colors"
+              >
+                {(thumbnailJobs[selectedAsset.id] ?? []).some(j => j.status === "completed")
+                  ? "View Thumbnail"
+                  : "Render Thumbnail"}
               </button>
               {selectedAsset.provider !== "mock" && (
                 <a

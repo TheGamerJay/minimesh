@@ -144,6 +144,13 @@ def _execute_normalize(job_id: str) -> None:
     job.updated_at = datetime.now(timezone.utc).isoformat()
     _save_job(job)
 
+    # Auto-trigger thumbnail render for the new version (best-effort)
+    try:
+        from app.services import thumbnail_service
+        thumbnail_service.create_thumbnail_job(job.asset_id, render_type="preview")
+    except Exception:
+        pass
+
 
 def _copy_fallback(source: str, dest: str) -> None:
     try:

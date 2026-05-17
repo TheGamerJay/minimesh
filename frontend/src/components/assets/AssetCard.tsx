@@ -12,23 +12,25 @@ interface Props {
 export default function AssetCard({ asset, selected, onSelect, onDelete, onDuplicate, onOpenViewer }: Props) {
   const downloadUrl = assetDownloadUrl(asset);
   const hasReal = asset.provider !== "mock";
+  // Prefer local rendered thumbnail over provider preview image
+  const displayImage = asset.thumbnail || asset.preview_image;
 
   return (
     <div
       onClick={onSelect}
-      className={`relative rounded-xl border cursor-pointer transition-all select-none ${
+      className={`relative rounded-xl border cursor-pointer transition-all select-none group ${
         selected
           ? "border-violet-500 bg-gray-800/80 shadow-lg shadow-violet-900/30"
-          : "border-gray-700/50 bg-gray-800/40 hover:border-gray-600"
+          : "border-gray-700/50 bg-gray-800/40 hover:border-gray-600 hover:shadow-md"
       }`}
     >
       {/* Thumbnail / preview */}
       <div className="relative h-36 rounded-t-xl overflow-hidden bg-gray-900 flex items-center justify-center">
-        {asset.preview_image ? (
+        {displayImage ? (
           <img
-            src={asset.preview_image}
+            src={displayImage}
             alt={asset.name}
-            className="w-full h-full object-cover"
+            className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-105"
             onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
           />
         ) : (
@@ -47,6 +49,13 @@ export default function AssetCard({ asset, selected, onSelect, onDelete, onDupli
         }`}>
           {hasReal ? asset.provider : "Mock"}
         </div>
+
+        {/* Thumbnail source badge — only show when rendered thumbnail exists */}
+        {asset.thumbnail && (
+          <div className="absolute bottom-2 right-2 text-[9px] font-mono px-1.5 py-0.5 rounded bg-black/60 border border-violet-500/30 text-violet-400">
+            RENDERED
+          </div>
+        )}
 
         {/* Version badge */}
         {asset.version > 1 && (

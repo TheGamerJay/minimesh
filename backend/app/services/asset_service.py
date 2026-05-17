@@ -183,6 +183,21 @@ def rename_asset(
     raise ValueError(f"Asset {asset_id} not found")
 
 
+def update_thumbnail(
+    asset_id: str,
+    thumbnail_url: str,
+    project_id: str | None = None,
+) -> bool:
+    assets = _load_registry(project_id)
+    for asset in assets:
+        if asset.id == asset_id:
+            asset.thumbnail = thumbnail_url
+            asset.updated_at = datetime.now(timezone.utc).isoformat()
+            _save_registry(assets, project_id)
+            return True
+    return False
+
+
 def update_inspection_metadata(
     asset_id: str,
     polygon_count: int | None,
