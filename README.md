@@ -6,9 +6,30 @@ Upload reference images. Choose a sculpt style. Generate a production-ready 3D a
 
 ---
 
-## Current Phase: Phase 25 — Real Export Upgrade + Package System (v2.5.0)
+## Current Phase: Phase 26 — Real Provider Output QA + Auto-Repair Suggestions (v2.6.0)
 
-Production-ready asset package builder — five export types, version-aware GLB selection, texture/thumbnail/inspection inclusion, ZIP bundles with structured manifests. See [docs/PHASES.md](docs/PHASES.md) for the full roadmap.
+Asset health scoring system — automated QA analysis (0–100 score), issue detection with severity tiers, repair suggestions, auto-trigger after normalization, health badges on all asset surfaces, QA overview in Quality Checker dashboard. See [docs/PHASES.md](docs/PHASES.md) for the full roadmap.
+
+**Asset QA routes (Phase 26):**
+
+| Route | Method | Description |
+|-------|--------|-------------|
+| `/api/asset-qa/run/{asset_id}` | POST | Run QA analysis, returns `AssetQAReport` |
+| `/api/asset-qa/{asset_id}` | GET | Get latest QA report (404 if none) |
+
+**QA scoring deductions:**
+
+| Issue | Deduction |
+|-------|-----------|
+| No inspection report | -8 |
+| Missing UVs | -15 |
+| No materials | -10 |
+| Not normalized | -12 |
+| Bounding box out of range | -8 |
+| No project textures | -10 |
+| No thumbnail | -10 |
+| No export packages | -5 |
+| Triangle count >500k or <100 | -6 |
 
 **Export V2 routes (Phase 25):**
 
@@ -82,7 +103,7 @@ BLENDER_PATH=C:/Program Files/Blender Foundation/Blender 4.2/blender.exe
 ```
 If `BLENDER_PATH` is not set, the worker pipeline auto-detects Blender via `PATH` and common install locations. If Blender is not found, thumbnail render marks `fallback: true` and uses the provider preview image.
 
-**Previous phase highlights:** Mesh Normalize Worker (Phase 23), GLB Inspection (Phase 22), Local Worker + Blender Bridge (Phase 21), Sculpt Studio (Phase 20), UV & Bake Prep (Phase 19), Texture Pipeline (Phase 18), Real GLB Viewer (Phase 17), Asset Registry (Phase 16).
+**Previous phase highlights:** Real Export Upgrade (Phase 25), Blender Thumbnail Renderer (Phase 24), Mesh Normalize Worker (Phase 23), GLB Inspection (Phase 22), Local Worker + Blender Bridge (Phase 21), Sculpt Studio (Phase 20), UV & Bake Prep (Phase 19), Texture Pipeline (Phase 18), Real GLB Viewer (Phase 17), Asset Registry (Phase 16).
 
 ---
 

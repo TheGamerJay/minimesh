@@ -22,6 +22,12 @@ export interface GeneratedAsset {
   version: number;
   tags: string[];
   versions: AssetVersion[];
+  material_count?: number | null;
+  has_uvs?: boolean | null;
+  // Phase 26 — QA fields
+  qa_score?: number | null;
+  qa_status?: string | null;
+  qa_last_checked?: string | null;
 }
 
 export async function listAssets(): Promise<GeneratedAsset[]> {

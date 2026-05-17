@@ -18,6 +18,9 @@ import AssetToolbar from "../components/assets/AssetToolbar";
 import InspectionPanel from "../components/assets/InspectionPanel";
 import NormalizePanel from "../components/assets/NormalizePanel";
 import ThumbnailRenderPanel from "../components/assets/ThumbnailRenderPanel";
+import AssetQAPanel from "../components/assets/AssetQAPanel";
+import AssetHealthBadge from "../components/assets/AssetHealthBadge";
+import { AssetQAReport, getAssetQA } from "../lib/assetQA";
 
 interface Props {
   onBack: () => void;
@@ -26,7 +29,7 @@ interface Props {
   onOpenExportManager?: (assetId: string) => void;
 }
 
-type InspectorTab = "info" | "versions" | "inspection" | "normalize" | "thumbnail";
+type InspectorTab = "info" | "versions" | "inspection" | "normalize" | "thumbnail" | "qa";
 
 export default function GeneratedAssets({ onBack, onOpenViewer, onOpenNormalized, onOpenExportManager }: Props) {
   const [assets, setAssets] = useState<GeneratedAsset[]>([]);
@@ -36,6 +39,7 @@ export default function GeneratedAssets({ onBack, onOpenViewer, onOpenNormalized
   const [inspectionReports, setInspectionReports] = useState<Record<string, GLBInspectionReport>>({});
   const [normalizeJobs, setNormalizeJobs] = useState<Record<string, NormalizeJob[]>>({});
   const [thumbnailJobs, setThumbnailJobs] = useState<Record<string, ThumbnailRenderJob[]>>({});
+  const [qaReports, setQaReports] = useState<Record<string, AssetQAReport>>({});
   const [filterType, setFilterType] = useState("all");
   const [filterProvider, setFilterProvider] = useState("all");
   const [sortBy, setSortBy] = useState("newest");
@@ -92,7 +96,21 @@ export default function GeneratedAssets({ onBack, onOpenViewer, onOpenNormalized
           setThumbnailJobs((prev) => ({ ...prev, [newId]: jobs }));
         } catch {}
       }
+      if (!qaReports[newId]) {
+        try {
+          const r = await getAssetQA(newId);
+          if (r) setQaReports((prev) => ({ ...prev, [newId]: r }));
+        } catch {}
+      }
     }
+  }
+
+  function handleQAReported(report: AssetQAReport) {
+    setQaReports((prev) => ({ ...prev, [report.asset_id]: report }));
+    // Refresh asset so health badge updates
+    getAsset(report.asset_id)
+      .then((updated) => setAssets((prev) => prev.map((a) => (a.id === updated.id ? updated : a))))
+      .catch(() => {});
   }
 
   function handleInspectionRefresh(report: GLBInspectionReport) {
@@ -257,6 +275,18 @@ export default function GeneratedAssets({ onBack, onOpenViewer, onOpenNormalized
               </button>
             </div>
 
+            {/* QA health badge in inspector header */}
+            {selectedAsset.qa_status && (
+              <div className="px-4 py-1.5 border-b border-gray-800/60 flex items-center gap-2">
+                <AssetHealthBadge status={selectedAsset.qa_status} score={selectedAsset.qa_score} size="sm" />
+                {selectedAsset.qa_last_checked && (
+                  <span className="text-[10px] text-gray-600">
+                    {new Date(selectedAsset.qa_last_checked).toLocaleDateString()}
+                  </span>
+                )}
+              </div>
+            )}
+
             {/* Preview image */}
             {selectedAsset.preview_image && (
               <div className="h-40 bg-gray-950 overflow-hidden">
@@ -266,7 +296,7 @@ export default function GeneratedAssets({ onBack, onOpenViewer, onOpenNormalized
 
             {/* Tabs */}
             <div className="flex border-b border-gray-800">
-              {(["info", "versions", "inspection", "normalize", "thumbnail"] as InspectorTab[]).map((tab) => (
+              {(["info", "versions", "inspection", "normalize", "thumbnail", "qa"] as InspectorTab[]).map((tab) => (
                 <button
                   key={tab}
                   onClick={() => setInspectorTab(tab)}
@@ -276,7 +306,12 @@ export default function GeneratedAssets({ onBack, onOpenViewer, onOpenNormalized
                       : "text-gray-500 hover:text-gray-300"
                   }`}
                 >
-                  {tab === "info" ? "Info" : tab === "versions" ? "Versions" : tab === "inspection" ? "Inspect" : tab === "normalize" ? "Normalize" : "Thumb"}
+                  {tab === "info" ? "Info"
+                    : tab === "versions" ? "Ver"
+                    : tab === "inspection" ? "Insp"
+                    : tab === "normalize" ? "Norm"
+                    : tab === "thumbnail" ? "Thumb"
+                    : "QA"}
                 </button>
               ))}
             </div>
@@ -309,12 +344,18 @@ export default function GeneratedAssets({ onBack, onOpenViewer, onOpenNormalized
                   onJobUpdate={handleNormalizeJobUpdate}
                   onOpenNormalized={onOpenNormalized ? (url) => onOpenNormalized(url, "NORMALIZED") : undefined}
                 />
-              ) : (
+              ) : inspectorTab === "thumbnail" ? (
                 <ThumbnailRenderPanel
                   asset={selectedAsset}
                   jobs={thumbnailJobs[selectedAsset.id] ?? []}
                   onJobCreated={handleThumbnailJobCreated}
                   onJobUpdate={handleThumbnailJobUpdate}
+                />
+              ) : (
+                <AssetQAPanel
+                  assetId={selectedAsset.id}
+                  report={qaReports[selectedAsset.id] ?? null}
+                  onReportUpdated={handleQAReported}
                 />
               )}
             </div>
@@ -349,6 +390,12 @@ export default function GeneratedAssets({ onBack, onOpenViewer, onOpenNormalized
                 {(thumbnailJobs[selectedAsset.id] ?? []).some(j => j.status === "completed")
                   ? "View Thumbnail"
                   : "Render Thumbnail"}
+              </button>
+              <button
+                onClick={() => setInspectorTab("qa")}
+                className="w-full py-2 rounded bg-gray-700 hover:bg-gray-600 text-gray-200 text-sm font-medium transition-colors"
+              >
+                {qaReports[selectedAsset.id] ? "View QA Report" : "Run QA Analysis"}
               </button>
               {onOpenExportManager && (
                 <button

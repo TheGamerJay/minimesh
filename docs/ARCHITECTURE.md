@@ -503,6 +503,80 @@ GET  /api/export-v2?asset_id=...      → list[AssetExportPackage]
 
 ---
 
+## Asset QA Layer (Phase 26)
+
+**Files:** `backend/app/models/asset_qa.py`, `backend/app/services/asset_qa_service.py`, `backend/app/routes/asset_qa.py`
+
+### Asset Health System
+
+```
+AssetQAReport
+  asset_id, generated_at
+  score: int (0–100)          # 100 = perfect, deductions per issue
+  status: str                  # healthy (≥85) | needs_work (≥60) | problematic (<60)
+  issues: list[AssetQAIssue]
+  strengths: list[str]
+  recommendations: list[str]   # deduplicated across all issue categories
+
+AssetQAIssue
+  id, severity (critical | warning | info)
+  category, title, description, suggestion, detected_at
+```
+
+### Repair Suggestion Engine
+
+`run_qa(asset_id)` inspects asset state and applies score deductions:
+
+| Check | Deduction |
+|-------|-----------|
+| No inspection report | -8 |
+| Missing UVs | -15 |
+| No materials | -10 |
+| Not normalized | -12 |
+| Bounding box >10 or <0.01 units | -8 |
+| No project textures | -10 |
+| No thumbnail | -10 |
+| No export packages | -5 |
+| Triangle count >500k | -6 |
+| Triangle count <100 (non-fallback) | -6 |
+
+Each deduction adds an `AssetQAIssue` with a human-readable `suggestion`. Recommendations are collected from issues and deduplicated via a `seen: set[str]`. Reports stored at `storage/asset_qa/{asset_id}.json`.
+
+### Auto-QA Trigger
+
+`normalize_service._execute_normalize()` calls `asset_qa_service.run_qa()` after successful normalization using a deferred import to avoid circular imports:
+
+```python
+try:
+    from app.services import asset_qa_service
+    asset_qa_service.run_qa(job.asset_id)
+except Exception:
+    pass
+```
+
+`update_qa_metadata()` in `asset_service` syncs score/status/timestamp back to the asset registry JSON so AssetCard and Viewer3D reflect current health state without a separate QA fetch.
+
+### Routes
+
+```
+POST /api/asset-qa/run/{asset_id}   → AssetQAReport (201)
+GET  /api/asset-qa/{asset_id}       → AssetQAReport | 404
+```
+
+### Frontend QA UI
+
+`AssetHealthBadge` — compact colored badge (emerald/amber/red) with score number, sizes `xs` and `sm`.
+
+`AssetQAPanel` — full panel with:
+- `ScoreRing` SVG component: circular arc proportional to score, colored by status
+- `IssueRow` expandable cards: severity chip + title + description + suggestion
+- Run / Re-run button with spinner
+- Strengths list and recommendations list
+
+`AssetQAOverview` in `QualityDashboard` — loads all assets and their QA reports, renders rows sorted by severity (problematic first), shows consolidated repair recommendations (deduped, max 8).
+
+---
+
 ## Inspection Pipeline (Phase 22)
 
 **Files:** `backend/app/models/inspection.py`, `backend/app/services/inspection_service.py`, `backend/app/routes/inspections.py`, `workers/blender_inspect.py`

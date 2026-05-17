@@ -1,4 +1,5 @@
 import { GeneratedAsset, formatFileSize, assetDownloadUrl } from "../../lib/assets";
+import AssetHealthBadge from "./AssetHealthBadge";
 
 interface Props {
   asset: GeneratedAsset;
@@ -78,6 +79,13 @@ export default function AssetCard({ asset, selected, onSelect, onDelete, onDupli
             <span>{asset.polygon_count.toLocaleString()} tris</span>
           )}
         </div>
+
+        {/* Health badge */}
+        {asset.qa_status && (
+          <div>
+            <AssetHealthBadge status={asset.qa_status} score={asset.qa_score} />
+          </div>
+        )}
 
         {/* Tags */}
         {asset.tags.length > 0 && (

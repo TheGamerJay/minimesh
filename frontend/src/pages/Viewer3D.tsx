@@ -1,7 +1,8 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import ExportPanel from "../components/ExportPanel";
 import MeshViewer from "../components/viewer/MeshViewer";
 import { captureViewerThumbnail } from "../lib/thumbnails";
+import { getAssetQA, qaStatusLabel, qaStatusColor } from "../lib/assetQA";
 import ModelStatsPanel from "../components/viewer/ModelStatsPanel";
 import ViewerInspector from "../components/viewer/ViewerInspector";
 import ViewerSettingsPanel from "../components/viewer/ViewerSettingsPanel";
@@ -46,6 +47,7 @@ export default function Viewer3D({ job, onBack, onOpenRigStudio, overrideGlbUrl,
   const screenshotRef = useRef<(() => void) | null>(null);
   const captureRef = useRef<(() => string) | null>(null);
   const [capturingThumb, setCapturingThumb] = useState(false);
+  const [qaStatus, setQaStatus] = useState<string | null>(null);
 
   const isMock = !overrideGlbUrl && (!job || job.provider === "mock");
   const glbUrl = overrideGlbUrl ?? (job?.glb_path ? `/export-packages/jobs/${job.id}/model.glb` : null);
@@ -71,6 +73,15 @@ export default function Viewer3D({ job, onBack, onOpenRigStudio, overrideGlbUrl,
     setCameraPreset(null);
   }, []);
 
+  // Fetch QA status when job has an asset_id
+  useEffect(() => {
+    const assetId = job?.asset_id;
+    if (!assetId) { setQaStatus(null); return; }
+    getAssetQA(assetId)
+      .then((r) => setQaStatus(r?.status ?? null))
+      .catch(() => setQaStatus(null));
+  }, [job?.asset_id]);
+
   async function handleCaptureAsThumbnail() {
     const assetId = job?.asset_id;
     if (!assetId || !captureRef.current) return;
@@ -92,6 +103,7 @@ export default function Viewer3D({ job, onBack, onOpenRigStudio, overrideGlbUrl,
   if (glbNormalized) badges.push({ label: "NORMALIZED", color: "cyan" });
   if (turntableActive) badges.push({ label: "TURNTABLE ACTIVE", color: "violet" });
   if (versionLabel) badges.push({ label: versionLabel, color: "cyan" });
+  if (qaStatus) badges.push({ label: qaStatusLabel(qaStatus), color: qaStatusColor(qaStatus) });
 
   return (
     <div className="h-screen flex flex-col bg-[#0a0a0f] text-slate-100 overflow-hidden">
@@ -123,6 +135,7 @@ export default function Viewer3D({ job, onBack, onOpenRigStudio, overrideGlbUrl,
                 ${b.color === "cyan" ? "border-cyan-500/30 bg-cyan-500/5 text-cyan-400" : ""}
                 ${b.color === "violet" ? "border-violet-500/30 bg-violet-500/5 text-violet-400" : ""}
                 ${b.color === "yellow" ? "border-yellow-500/20 bg-yellow-500/5 text-yellow-500/80" : ""}
+                ${b.color === "amber" ? "border-amber-500/30 bg-amber-500/10 text-amber-400" : ""}
                 ${b.color === "red" ? "border-red-500/30 bg-red-500/5 text-red-400" : ""}
               `}
             >
@@ -133,6 +146,7 @@ export default function Viewer3D({ job, onBack, onOpenRigStudio, overrideGlbUrl,
                     b.color === "emerald" ? "#34d399" :
                     b.color === "cyan" ? "#22d3ee" :
                     b.color === "violet" ? "#a78bfa" :
+                    b.color === "amber" ? "#f59e0b" :
                     b.color === "red" ? "#f87171" : "#f59e0b",
                 }}
               />
@@ -187,7 +201,7 @@ export default function Viewer3D({ job, onBack, onOpenRigStudio, overrideGlbUrl,
             </button>
           )}
 
-          <span className="text-xs font-mono text-slate-700">Phase 24</span>
+          <span className="text-xs font-mono text-slate-700">Phase 26</span>
         </div>
       </header>
 

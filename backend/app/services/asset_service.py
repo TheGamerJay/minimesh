@@ -220,6 +220,25 @@ def update_inspection_metadata(
     return False
 
 
+def update_qa_metadata(
+    asset_id: str,
+    qa_score: int,
+    qa_status: str,
+    qa_last_checked: str,
+    project_id: str | None = None,
+) -> bool:
+    assets = _load_registry(project_id)
+    for asset in assets:
+        if asset.id == asset_id:
+            asset.qa_score = qa_score
+            asset.qa_status = qa_status
+            asset.qa_last_checked = qa_last_checked
+            asset.updated_at = datetime.now(timezone.utc).isoformat()
+            _save_registry(assets, project_id)
+            return True
+    return False
+
+
 def delete_asset(asset_id: str, project_id: str | None = None) -> bool:
     assets = _load_registry(project_id)
     original_len = len(assets)

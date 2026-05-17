@@ -151,6 +151,13 @@ def _execute_normalize(job_id: str) -> None:
     except Exception:
         pass
 
+    # Auto-run QA after normalization (best-effort)
+    try:
+        from app.services import asset_qa_service
+        asset_qa_service.run_qa(job.asset_id)
+    except Exception:
+        pass
+
 
 def _copy_fallback(source: str, dest: str) -> None:
     try:

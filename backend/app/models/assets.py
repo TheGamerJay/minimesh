@@ -30,3 +30,7 @@ class GeneratedAsset(BaseModel):
     version: int = 1
     tags: list[str] = []
     versions: list[AssetVersion] = []
+    # Phase 26 — QA fields
+    qa_score: int | None = None
+    qa_status: str | None = None        # healthy | needs_work | problematic
+    qa_last_checked: str | None = None
