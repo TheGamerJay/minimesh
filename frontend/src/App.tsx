@@ -13,6 +13,7 @@ import RigStudio from "./pages/RigStudio";
 import SculptTypeSelector from "./pages/SculptTypeSelector";
 import UploadStudio from "./pages/UploadStudio";
 import Viewer3D from "./pages/Viewer3D";
+import ExportManager from "./pages/ExportManager";
 import { Job } from "./lib/jobs";
 import { RigJob } from "./lib/rigs";
 import { ProjectSummary, listProjects } from "./lib/library";
@@ -37,7 +38,8 @@ type Page =
   | "texture_studio"
   | "uv_bake_prep"
   | "sculpt_studio"
-  | "worker_console";
+  | "worker_console"
+  | "export_manager";
 
 const PIPELINE_STEPS: {
   id: number;
@@ -229,6 +231,7 @@ export default function App() {
   const [activeProvider, setActiveProvider] = useState<ActiveProvider | null>(null);
   const [viewerOverrideGlbUrl, setViewerOverrideGlbUrl] = useState<string | null>(null);
   const [viewerVersionLabel, setViewerVersionLabel] = useState<string | null>(null);
+  const [exportManagerAssetId, setExportManagerAssetId] = useState<string | null>(null);
 
   const refreshCredits = useCallback(() => {
     getWallet()
@@ -260,6 +263,11 @@ export default function App() {
     setViewerOverrideGlbUrl(url);
     setViewerVersionLabel(label);
     setPage("viewer3d");
+  }
+
+  function handleOpenExportManager(assetId: string) {
+    setExportManagerAssetId(assetId);
+    setPage("export_manager");
   }
 
   function handleOpenRigStudio(job: Job) {
@@ -370,6 +378,7 @@ export default function App() {
           onBack={() => setPage("home")}
           onOpenViewer={handleOpenViewer}
           onOpenNormalized={handleOpenNormalized}
+          onOpenExportManager={handleOpenExportManager}
         />
       </CreditContext.Provider>
     );
@@ -380,6 +389,15 @@ export default function App() {
       <CreditContext.Provider value={creditContextValue}>
         <WorkerConsole onBack={() => setPage("home")} />
       </CreditContext.Provider>
+    );
+  }
+
+  if (page === "export_manager") {
+    return (
+      <ExportManager
+        onBack={() => setPage("generated_assets")}
+        preloadedAssetId={exportManagerAssetId}
+      />
     );
   }
 

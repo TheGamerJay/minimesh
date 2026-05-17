@@ -6,9 +6,38 @@ Upload reference images. Choose a sculpt style. Generate a production-ready 3D a
 
 ---
 
-## Current Phase: Phase 24 — Real Blender Thumbnail Renderer (v2.4.0)
+## Current Phase: Phase 25 — Real Export Upgrade + Package System (v2.5.0)
 
-Headless Blender thumbnail rendering from GLB files — Workbench engine, three-point lighting, 512×512 PNG with transparent background. Viewer "Capture as Thumbnail" captures the live canvas. Thumbnails auto-trigger after normalization. See [docs/PHASES.md](docs/PHASES.md) for the full roadmap.
+Production-ready asset package builder — five export types, version-aware GLB selection, texture/thumbnail/inspection inclusion, ZIP bundles with structured manifests. See [docs/PHASES.md](docs/PHASES.md) for the full roadmap.
+
+**Export V2 routes (Phase 25):**
+
+| Route | Method | Description |
+|-------|--------|-------------|
+| `/api/export-v2/create` | POST | Build export package `{asset_id, export_type, version_label}` |
+| `/api/export-v2/{id}/download` | GET | Download ZIP (Content-Disposition: attachment) |
+| `/api/export-v2/{id}` | GET | Get package metadata |
+| `/api/export-v2` | GET | List packages (`?asset_id=` filter) |
+
+**Export types:**
+
+| Type | Contents |
+|------|---------|
+| `glb_package` | model + thumbnail + manifest |
+| `game_ready` | model + textures + thumbnail + manifest |
+| `texture_bundle` | textures only + manifest |
+| `inspection_bundle` | model + inspection report + manifest |
+| `full_project_bundle` | all available files |
+
+**ZIP structure:**
+```
+MyAsset_latest.zip
+  model/asset.glb
+  textures/albedo_texture.png
+  preview/thumbnail.png
+  inspection/report.json
+  manifest.json
+```
 
 **Thumbnail routes (Phase 24):**
 

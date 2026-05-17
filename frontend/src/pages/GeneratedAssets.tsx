@@ -23,11 +23,12 @@ interface Props {
   onBack: () => void;
   onOpenViewer: (job: Job) => void;
   onOpenNormalized?: (url: string, label: string) => void;
+  onOpenExportManager?: (assetId: string) => void;
 }
 
 type InspectorTab = "info" | "versions" | "inspection" | "normalize" | "thumbnail";
 
-export default function GeneratedAssets({ onBack, onOpenViewer, onOpenNormalized }: Props) {
+export default function GeneratedAssets({ onBack, onOpenViewer, onOpenNormalized, onOpenExportManager }: Props) {
   const [assets, setAssets] = useState<GeneratedAsset[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -349,6 +350,14 @@ export default function GeneratedAssets({ onBack, onOpenViewer, onOpenNormalized
                   ? "View Thumbnail"
                   : "Render Thumbnail"}
               </button>
+              {onOpenExportManager && (
+                <button
+                  onClick={() => onOpenExportManager(selectedAsset.id)}
+                  className="w-full py-2 rounded bg-emerald-700/80 hover:bg-emerald-600/80 text-white text-sm font-medium transition-colors"
+                >
+                  Export V2
+                </button>
+              )}
               {selectedAsset.provider !== "mock" && (
                 <a
                   href={`/export-packages/jobs/${selectedAsset.source_job_id}/model.${selectedAsset.asset_type}`}

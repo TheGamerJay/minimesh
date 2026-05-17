@@ -411,6 +411,98 @@ GET  /api/normalize?asset_id=...      → list[NormalizeJob]
 
 ---
 
+## Export Package Builder (Phase 25)
+
+**Files:** `backend/app/models/export_v2.py`, `backend/app/services/export_package_service.py`, `backend/app/routes/export_v2.py`
+
+### Export V2 Data Model
+
+```
+AssetExportPackage
+  id, asset_id, asset_name
+  export_type (glb_package | game_ready | texture_bundle | inspection_bundle | full_project_bundle)
+  version_exported (int), version_label ("latest" | "original" | "normalized")
+  included_files[]           — list of paths inside the ZIP
+  manifest_path, zip_path    — relative paths from PROJECT_ROOT
+  zip_size (bytes)
+  normalized, has_textures, has_inspection, has_thumbnail (booleans)
+  created_at
+
+ExportManifest (inside ZIP as manifest.json)
+  minimesh_version: "2"
+  asset_id, asset_name, version, version_label
+  provider, normalized, export_type
+  textures: [{name, type}]
+  has_inspection, inspection_summary (mesh_count/triangles/materials/has_uvs)
+  thumbnail (path inside ZIP or null)
+  file_count, exported_at
+```
+
+Storage: `storage/export_packages_v2/{id}.json`. ZIP output: `exports/packages_v2/{id}/{name}_{version_label}.zip`.
+
+### Export Type Flags
+
+| Type | model | textures | inspection | thumbnail |
+|------|-------|----------|------------|-----------|
+| `glb_package` | ✓ | | | ✓ |
+| `game_ready` | ✓ | ✓ | | ✓ |
+| `texture_bundle` | | ✓ | | |
+| `inspection_bundle` | ✓ | | ✓ | |
+| `full_project_bundle` | ✓ | ✓ | ✓ | ✓ |
+
+### Version Export Selection
+
+`_resolve_glb(asset, version_label)` → `(disk_path, version_number, is_normalized)`:
+- `"latest"`: `asset.file_path` (current version)
+- `"original"`: `asset.versions[0].file_path` (lowest-version in history) or `asset.file_path` if no versions
+- `"normalized"`: current if `"normalize" in asset.provider`, else searches `asset.versions[]` for normalize provider
+
+### Bundle Manifest System
+
+Manifest written both into the ZIP as `manifest.json` and to disk at `exports/packages_v2/{id}/manifest.json` for direct inspection. Contains all package metadata, texture list, inspection summary if included, and a `file_count` of all bundled artifacts.
+
+### Texture Inclusion
+
+Pulls from `texture_service.list_textures(project_id)` — all textures in the active project are included when the export type includes textures. Each texture is written to `textures/{type}_{filename}` inside the ZIP.
+
+### Thumbnail Resolution
+
+`asset.thumbnail` URL is `/export-packages/thumbnails/...` which maps to `exports/thumbnails/...` on disk. The path is resolved by stripping the URL prefix and joining with `PROJECT_ROOT / "exports"`.
+
+### Routes
+
+```
+POST /api/export-v2/create            body: {asset_id, export_type, version_label} → AssetExportPackage (201)
+GET  /api/export-v2/{id}/download     → FileResponse (ZIP, Content-Disposition: attachment)
+GET  /api/export-v2/{id}              → AssetExportPackage
+GET  /api/export-v2?asset_id=...      → list[AssetExportPackage]
+```
+
+### Frontend Export UI
+
+**ExportManager page** (`frontend/src/pages/ExportManager.tsx`):
+- Left column (w-80): asset selector dropdown + `ExportPackageBuilder`
+- Right: package history list + `ExportInspector` side panel
+- Navigation: App.tsx tracks `exportManagerAssetId`; `GeneratedAssets` "Export V2" button opens ExportManager preloaded with the selected asset
+
+**ExportPackageBuilder** (`frontend/src/components/export/ExportPackageBuilder.tsx`):
+- Asset display card (name, version, type, provider)
+- Export type selector (5 types with descriptions)
+- Version selector (latest/original/normalized with descriptions)
+- "Will include" summary badges (derived from selected type)
+- Build Package button with spinner
+
+**ExportPackageCard** (`frontend/src/components/export/ExportPackageCard.tsx`):
+- Type badge, asset name, version + size info
+- NORMALIZED / TEXTURES / INSPECTION / THUMBNAIL badges from package booleans
+- Download ZIP button (anchor with `download` attribute to `/api/export-v2/{id}/download`)
+
+**ExportInspector** (`frontend/src/components/export/ExportInspector.tsx`):
+- Full package detail view: type badge, badges row, included files list (font-mono), meta table
+- Download ZIP primary action button
+
+---
+
 ## Inspection Pipeline (Phase 22)
 
 **Files:** `backend/app/models/inspection.py`, `backend/app/services/inspection_service.py`, `backend/app/routes/inspections.py`, `workers/blender_inspect.py`
