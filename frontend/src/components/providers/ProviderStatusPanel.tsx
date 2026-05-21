@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
-import { ProviderConfig, getProviderStatus } from "../../lib/providers";
+import { ProviderCapabilities, ProviderConfig, getProviderStatus } from "../../lib/providers";
 
-const CAP_LABELS: { key: keyof ProviderConfig; label: string }[] = [
-  { key: "supports_generation", label: "Generation" },
-  { key: "supports_textures", label: "Textures" },
-  { key: "supports_rigging", label: "Rigging" },
-  { key: "supports_animation", label: "Animation" },
+const CAP_LABELS: { key: keyof ProviderCapabilities; label: string }[] = [
+  { key: "generation", label: "Generation" },
+  { key: "textures", label: "Textures" },
+  { key: "rigging", label: "Rigging" },
+  { key: "animation", label: "Animation" },
 ];
 
 function ProviderRow({ config }: { config: ProviderConfig }) {
@@ -26,7 +26,7 @@ function ProviderRow({ config }: { config: ProviderConfig }) {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span className="text-xs font-mono font-bold text-slate-200 capitalize">
-            {config.provider_name}
+            {config.display_name}
           </span>
           <span className="text-[9px] font-mono px-1.5 py-0.5 rounded border border-white/8 text-slate-500">
             image-to-3D
@@ -36,7 +36,7 @@ function ProviderRow({ config }: { config: ProviderConfig }) {
       </div>
       <div className="flex items-center gap-3 flex-wrap">
         {CAP_LABELS.map(({ key, label }) => {
-          const supported = config[key] as boolean;
+          const supported = config.capabilities[key];
           return (
             <span
               key={label}
@@ -78,7 +78,7 @@ export default function ProviderStatusPanel() {
   return (
     <div className="flex flex-col gap-2">
       {providers.map((p) => (
-        <ProviderRow key={p.provider_name} config={p} />
+        <ProviderRow key={p.name} config={p} />
       ))}
       {providers.length === 0 && (
         <p className="text-[10px] font-mono text-slate-600">No providers configured.</p>
