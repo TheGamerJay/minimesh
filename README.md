@@ -6,9 +6,16 @@ Upload reference images. Choose a sculpt style. Generate a production-ready 3D a
 
 ---
 
-## Current Phase: Phase 26 — Real Provider Output QA + Auto-Repair Suggestions (v2.6.0)
+## Current Phase: Phase 27 — Auto-Repair Action Planner (v2.7.0)
 
-Asset health scoring system — automated QA analysis (0–100 score), issue detection with severity tiers, repair suggestions, auto-trigger after normalization, health badges on all asset surfaces, QA overview in Quality Checker dashboard. See [docs/PHASES.md](docs/PHASES.md) for the full roadmap.
+QA issues mapped to guided one-click repair actions. Repair plan generated from latest QA report — six action types (Inspect, Normalize, Thumbnail, Texture Studio, Export Package, Re-run QA), priority-ordered, user-initiated only. No auto-edits. See [docs/PHASES.md](docs/PHASES.md) for the full roadmap.
+
+**Repair routes (Phase 27):**
+
+| Route | Method | Description |
+|-------|--------|-------------|
+| `/api/repairs/{asset_id}/plan` | GET | Generate repair plan from latest QA report |
+| `/api/repairs/{asset_id}/run/{action_type}` | POST | Trigger a specific repair action (201) |
 
 **Asset QA routes (Phase 26):**
 

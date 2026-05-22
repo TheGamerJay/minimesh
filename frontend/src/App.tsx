@@ -379,6 +379,7 @@ export default function App() {
           onOpenViewer={handleOpenViewer}
           onOpenNormalized={handleOpenNormalized}
           onOpenExportManager={handleOpenExportManager}
+          onOpenTextureStudio={() => setPage("texture_studio")}
         />
       </CreditContext.Provider>
     );

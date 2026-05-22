@@ -20,6 +20,7 @@ import NormalizePanel from "../components/assets/NormalizePanel";
 import ThumbnailRenderPanel from "../components/assets/ThumbnailRenderPanel";
 import AssetQAPanel from "../components/assets/AssetQAPanel";
 import AssetHealthBadge from "../components/assets/AssetHealthBadge";
+import RepairPlanPanel from "../components/assets/RepairPlanPanel";
 import { AssetQAReport, getAssetQA } from "../lib/assetQA";
 
 interface Props {
@@ -27,11 +28,12 @@ interface Props {
   onOpenViewer: (job: Job) => void;
   onOpenNormalized?: (url: string, label: string) => void;
   onOpenExportManager?: (assetId: string) => void;
+  onOpenTextureStudio?: () => void;
 }
 
-type InspectorTab = "info" | "versions" | "inspection" | "normalize" | "thumbnail" | "qa";
+type InspectorTab = "info" | "versions" | "inspection" | "normalize" | "thumbnail" | "qa" | "repair";
 
-export default function GeneratedAssets({ onBack, onOpenViewer, onOpenNormalized, onOpenExportManager }: Props) {
+export default function GeneratedAssets({ onBack, onOpenViewer, onOpenNormalized, onOpenExportManager, onOpenTextureStudio }: Props) {
   const [assets, setAssets] = useState<GeneratedAsset[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -296,7 +298,7 @@ export default function GeneratedAssets({ onBack, onOpenViewer, onOpenNormalized
 
             {/* Tabs */}
             <div className="flex border-b border-gray-800">
-              {(["info", "versions", "inspection", "normalize", "thumbnail", "qa"] as InspectorTab[]).map((tab) => (
+              {(["info", "versions", "inspection", "normalize", "thumbnail", "qa", "repair"] as InspectorTab[]).map((tab) => (
                 <button
                   key={tab}
                   onClick={() => setInspectorTab(tab)}
@@ -311,7 +313,8 @@ export default function GeneratedAssets({ onBack, onOpenViewer, onOpenNormalized
                     : tab === "inspection" ? "Insp"
                     : tab === "normalize" ? "Norm"
                     : tab === "thumbnail" ? "Thumb"
-                    : "QA"}
+                    : tab === "qa" ? "QA"
+                    : "Fix"}
                 </button>
               ))}
             </div>
@@ -351,11 +354,22 @@ export default function GeneratedAssets({ onBack, onOpenViewer, onOpenNormalized
                   onJobCreated={handleThumbnailJobCreated}
                   onJobUpdate={handleThumbnailJobUpdate}
                 />
-              ) : (
+              ) : inspectorTab === "qa" ? (
                 <AssetQAPanel
                   assetId={selectedAsset.id}
                   report={qaReports[selectedAsset.id] ?? null}
                   onReportUpdated={handleQAReported}
+                />
+              ) : (
+                <RepairPlanPanel
+                  assetId={selectedAsset.id}
+                  onNavigateTextureStudio={() => onOpenTextureStudio?.()}
+                  onNavigateExportManager={() => onOpenExportManager?.(selectedAsset.id)}
+                  onRepairComplete={() => {
+                    getAssetQA(selectedAsset.id)
+                      .then((r) => { if (r) setQaReports((prev) => ({ ...prev, [selectedAsset.id]: r })); })
+                      .catch(() => {});
+                  }}
                 />
               )}
             </div>
@@ -396,6 +410,12 @@ export default function GeneratedAssets({ onBack, onOpenViewer, onOpenNormalized
                 className="w-full py-2 rounded bg-gray-700 hover:bg-gray-600 text-gray-200 text-sm font-medium transition-colors"
               >
                 {qaReports[selectedAsset.id] ? "View QA Report" : "Run QA Analysis"}
+              </button>
+              <button
+                onClick={() => setInspectorTab("repair")}
+                className="w-full py-2 rounded bg-violet-700/60 hover:bg-violet-600/60 text-violet-200 text-sm font-medium transition-colors"
+              >
+                Repair Planner
               </button>
               {onOpenExportManager && (
                 <button
