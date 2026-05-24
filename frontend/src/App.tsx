@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import AnimationPreview from "./pages/AnimationPreview";
+import DeploymentStatus from "./pages/DeploymentStatus";
 import SculptStudio from "./pages/SculptStudio";
 import WorkerConsole from "./pages/WorkerConsole";
 import CreditDashboard from "./pages/CreditDashboard";
@@ -39,7 +40,8 @@ type Page =
   | "uv_bake_prep"
   | "sculpt_studio"
   | "worker_console"
-  | "export_manager";
+  | "export_manager"
+  | "deployment_status";
 
 const PIPELINE_STEPS: {
   id: number;
@@ -159,6 +161,13 @@ const PIPELINE_STEPS: {
     icon: "⬡",
     description: "Manage local worker tasks, Blender bridge, and future mesh operations.",
     page: "worker_console" as Page,
+  },
+  {
+    id: 17,
+    label: "Deployment Status",
+    icon: "◉",
+    description: "Production readiness, environment validation, and deployment diagnostics.",
+    page: "deployment_status" as Page,
   },
 ];
 
@@ -410,6 +419,10 @@ export default function App() {
     );
   }
 
+  if (page === "deployment_status") {
+    return <DeploymentStatus onBack={() => setPage("home")} />;
+  }
+
   if (page === "texture_studio" || page === "uv_bake_prep") {
     return (
       <CreditContext.Provider value={creditContextValue}>
@@ -477,7 +490,7 @@ export default function App() {
             </button>
           )}
           <span className="text-xs font-mono px-3 py-1 rounded-full border border-cyan-500/30 text-cyan-400 bg-cyan-500/5">
-            Phase 23 — Blender Mesh Normalize
+            Phase 28 — Production Deployment Prep
           </span>
         </div>
       </header>
@@ -530,7 +543,7 @@ export default function App() {
               </span>
             </span>
           </div>
-          <span className="text-xs text-slate-600 font-mono">v2.1.0</span>
+          <span className="text-xs text-slate-600 font-mono">v2.8.0</span>
         </div>
       </main>
     </div>

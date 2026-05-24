@@ -6,9 +6,9 @@ Upload reference images. Choose a sculpt style. Generate a production-ready 3D a
 
 ---
 
-## Current Phase: Phase 27 — Auto-Repair Action Planner (v2.7.0)
+## Current Phase: Phase 28 — Production Deployment Prep (v2.8.0)
 
-QA issues mapped to guided one-click repair actions. Repair plan generated from latest QA report — six action types (Inspect, Normalize, Thumbnail, Texture Studio, Export Package, Re-run QA), priority-ordered, user-initiated only. No auto-edits. See [docs/PHASES.md](docs/PHASES.md) for the full roadmap.
+Dockerization, health checks, environment validation, startup logging, and a Deployment Status UI. Multi-stage Dockerfile (Node 20 + Python 3.11 + nginx + supervisor), `/health/live` liveness probe, `/health/ready` readiness probe with storage/frontend/provider/Blender checks, `env_service` validates all runtime configuration on startup, `miniforge.json` for Mini Forge platform integration. See [docs/PHASES.md](docs/PHASES.md) for the full roadmap.
 
 **Repair routes (Phase 27):**
 
@@ -110,7 +110,41 @@ BLENDER_PATH=C:/Program Files/Blender Foundation/Blender 4.2/blender.exe
 ```
 If `BLENDER_PATH` is not set, the worker pipeline auto-detects Blender via `PATH` and common install locations. If Blender is not found, thumbnail render marks `fallback: true` and uses the provider preview image.
 
-**Previous phase highlights:** Real Export Upgrade (Phase 25), Blender Thumbnail Renderer (Phase 24), Mesh Normalize Worker (Phase 23), GLB Inspection (Phase 22), Local Worker + Blender Bridge (Phase 21), Sculpt Studio (Phase 20), UV & Bake Prep (Phase 19), Texture Pipeline (Phase 18), Real GLB Viewer (Phase 17), Asset Registry (Phase 16).
+**Health check routes (Phase 28):**
+
+| Route | Method | Description |
+|-------|--------|-------------|
+| `/health/live` | GET | Liveness probe — always 200 |
+| `/health/ready` | GET | Readiness probe — storage, frontend, providers, Blender |
+
+**Environment variables:**
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `PORT` | No | 8080 | Server port |
+| `APP_ENV` | No | development | `production` enables same-origin CORS |
+| `STORAGE_PATH` | No | `./storage` | Asset storage root |
+| `BLENDER_PATH` | No | — | Blender executable path |
+| `MESHY_API_KEY` | No | — | Meshy API key (mock if unset) |
+| `TRIPO_API_KEY` | No | — | Tripo API key (stub) |
+| `RODIN_API_KEY` | No | — | Rodin API key (stub) |
+
+**Docker deployment:**
+
+```bash
+# Build
+docker build -t minimesh .
+
+# Run with persistent volumes
+docker run --rm -p 8080:8080 \
+  -v minimesh-storage:/app/storage \
+  -v minimesh-exports:/app/exports \
+  minimesh
+```
+
+**Mini Forge deployment:** Connect the `TheGamerJay/minimesh` GitHub repo inside Mini Forge. The `miniforge.json` at the repo root declares the build command, start command, health check path, and required volumes.
+
+**Previous phase highlights:** Auto-Repair Action Planner (Phase 27), Real Provider Output QA (Phase 26), Real Export Upgrade (Phase 25), Blender Thumbnail Renderer (Phase 24), Mesh Normalize Worker (Phase 23), GLB Inspection (Phase 22), Local Worker + Blender Bridge (Phase 21), Sculpt Studio (Phase 20).
 
 ---
 
@@ -124,8 +158,8 @@ If `BLENDER_PATH` is not set, the worker pipeline auto-detects Blender via `PATH
 | 3D Preview | Three.js / React Three Fiber (Phase 5+)    |
 | Database   | PostgreSQL (Phase 4+)                      |
 | Workers    | Celery + Redis (Phase 4+)                  |
-| Storage    | Local dev → Cloudflare R2 (Phase 13)       |
-| Deploy     | Railway (Phase 13)                         |
+| Storage    | Local dev filesystem → persistent volumes  |
+| Deploy     | Docker + nginx + supervisor (Mini Forge)   |
 
 ---
 

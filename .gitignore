@@ -242,6 +242,16 @@ storage/*
 exports/*
 !exports/.gitkeep
 
+# Blender temp files
+*.blend1
+*.blend2
+*.blend~
+.crash.txt
+
+# Logs
+logs/
+*.log
+
 # OS
 .DS_Store
 Thumbs.db

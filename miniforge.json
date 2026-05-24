@@ -1,0 +1,33 @@
+{
+  "name": "minimesh",
+  "description": "MiniMesh — AI image-to-3D pipeline studio",
+  "version": "2.8.0",
+  "build_command": "docker build -t minimesh .",
+  "start_command": "docker run --rm -p ${PORT:-8080}:8080 -v minimesh-storage:/app/storage -v minimesh-exports:/app/exports minimesh",
+  "port": 8080,
+  "health_check_path": "/health/ready",
+  "health_check_interval_seconds": 30,
+  "environment": {
+    "required": {
+      "PORT": "Port the container exposes (default: 8080)"
+    },
+    "optional": {
+      "MESHY_API_KEY": "Meshy AI API key for real 3D generation — omit to use mock provider",
+      "TRIPO_API_KEY": "Tripo3D API key (stub — future integration)",
+      "RODIN_API_KEY": "Rodin API key (stub — future integration)",
+      "BLENDER_PATH": "Absolute path to Blender executable — omit to use fallback normalize/thumbnail mode",
+      "STORAGE_PATH": "Override the storage directory path — use a persistent volume in production",
+      "APP_ENV": "Application environment: development | production (default: development)"
+    }
+  },
+  "volumes": {
+    "/app/storage": "Persistent asset registry, job state, and project data",
+    "/app/exports": "Generated GLB files, thumbnails, export packages, and normalized meshes"
+  },
+  "notes": [
+    "Single-worker uvicorn — file-based storage is not safe for multiple workers.",
+    "Mount /app/storage and /app/exports as persistent volumes to survive restarts.",
+    "Blender is NOT included in the image. Set BLENDER_PATH to mount a host Blender binary.",
+    "If MESHY_API_KEY is absent, all 3D generation uses the built-in mock provider."
+  ]
+}

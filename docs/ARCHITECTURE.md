@@ -788,11 +788,106 @@ Provider selection will be configurable per-project in Phase 4.
 
 ---
 
-## Deployment (Phase 13)
+## Deployment Layer (Phase 28)
 
-- Backend: Railway (Python service)
-- Frontend: Railway static site or Cloudflare Pages
-- Workers: Railway background workers
-- Database: Railway PostgreSQL
-- Storage: Cloudflare R2
-- CI/CD: GitHub Actions
+**Files:** `Dockerfile`, `docker/nginx.conf`, `docker/supervisord.conf`, `start.sh`, `miniforge.json`
+
+### Docker Architecture
+
+Multi-stage build:
+1. **Stage 1** (`node:20-alpine`): installs frontend deps, runs `npm run build`, outputs to `/app/frontend/dist`
+2. **Stage 2** (`python:3.11-slim`): installs nginx + supervisor, copies backend to `/app/backend/`, frontend dist to `/app/frontend/dist/`, pre-creates all storage subdirectories
+
+Runtime (supervisord):
+- **uvicorn** (priority 10): `python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --workers 1` from `/app/backend/`, `PYTHONPATH=/app/backend`
+- **nginx** (priority 20): listens on port 8080, proxies API traffic, serves SPA
+
+Single worker constraint: file-based storage cannot safely handle multiple uvicorn workers — `--workers 1` is intentional.
+
+### nginx Routing
+
+```nginx
+upstream backend { server 127.0.0.1:8000; }
+server {
+  listen 8080;
+  root /app/frontend/dist;
+  location /api/          { proxy_pass http://backend; }
+  location /uploads/      { proxy_pass http://backend; }
+  location /export-packages/ { proxy_pass http://backend; }
+  location /textures/     { proxy_pass http://backend; }
+  location /health        { proxy_pass http://backend; }   # prefix — covers /health/live, /health/ready
+  location /assets/       { try_files $uri =404; }         # static assets (immutable)
+  location /              { try_files $uri $uri/ /index.html; }  # SPA fallback
+}
+```
+
+### Environment Validation (env_service.py)
+
+`validate()` reads and validates all runtime configuration:
+
+| Variable | Default | Notes |
+|----------|---------|-------|
+| `PORT` | 8080 | Uvicorn binding port |
+| `STORAGE_PATH` | `PROJECT_ROOT/storage` | Asset and job storage root |
+| `APP_ENV` | development | Controls CORS (production allows `*`) |
+| `MESHY_API_KEY` | — | Optional; warning if missing |
+| `TRIPO_API_KEY` | — | Optional stub |
+| `RODIN_API_KEY` | — | Optional stub |
+| `BLENDER_PATH` | — | Optional; warning if missing |
+
+`storage_ephemeral`: `True` when `STORAGE_PATH` starts with `/tmp` or `/var/tmp` — triggers warning and health report note.
+
+`log_startup()` prints a formatted banner to stdout on every backend start: app version, env, port, provider key status, Blender availability, storage path + writable status.
+
+### Health Check Routes
+
+```
+GET /health/live   → {"status": "alive"}   (always 200 — liveness probe)
+GET /health/ready  → ReadinessReport       (readiness probe)
+```
+
+`ReadinessReport`:
+- `ready`: `storage_writable AND provider_registry` — only these are blocking
+- `checks.storage_writable`: probe file write/delete in storage directory
+- `checks.frontend_dist`: looks for `PROJECT_ROOT/frontend/dist/index.html`
+- `checks.provider_registry`: import check for provider registry module
+- `checks.blender_available`: `blender_bridge.detect()` result
+- `env`: full `EnvReport` model dumped inline
+- `warnings`: assembled from `env_service.validate().warnings`
+
+### Persistent Volumes (Docker)
+
+| Container path | Purpose |
+|---------------|---------|
+| `/app/storage` | Asset registry, jobs, projects, QA reports, inspections |
+| `/app/exports` | GLBs, thumbnails, export packages |
+
+Both must be mounted as persistent volumes in production — contents do not survive container restarts otherwise.
+
+### Mini Forge Integration (miniforge.json)
+
+```json
+{
+  "name": "minimesh",
+  "port": 8080,
+  "build_command": "docker build -t minimesh .",
+  "start_command": "docker run --rm -p ${PORT:-8080}:8080 -v minimesh-storage:/app/storage -v minimesh-exports:/app/exports minimesh",
+  "health_check_path": "/health/ready"
+}
+```
+
+### DeploymentStatus Page (Phase 28)
+
+`frontend/src/pages/DeploymentStatus.tsx` — fetches `/health/ready` on mount:
+- Overall readiness banner (green/red with version + env)
+- `DeploymentWarningsPanel`: green "no warnings" or amber warning list
+- System checks 2×2 grid (`DeploymentHealthCard` per check)
+- `EnvironmentStatusPanel`: env var rows with emerald (configured) / amber (not set) coloring
+- `StorageStatusPanel`: path, writable status, ephemeral warning box
+- Mini Forge deployment hint block: build command, health path, port, config file
+
+---
+
+## Legacy Deployment Note (Phase 13 original plan)
+
+Previous plan targeted Railway + Cloudflare R2. Phase 28 supersedes this with a Mini Forge-first deployment approach (Docker + single-binary supervisord process). Railway/R2 integration may be revisited in a future hardening phase.

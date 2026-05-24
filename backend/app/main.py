@@ -1,3 +1,5 @@
+import os
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
@@ -6,6 +8,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.config import settings
+from app.services import env_service
 from app.routes.animations import router as animations_router
 from app.routes.audits import router as audits_router
 from app.routes.exports import router as exports_router
@@ -73,16 +76,27 @@ _PACKAGES_DIR.mkdir(parents=True, exist_ok=True)
 (PROJECT_ROOT / "storage" / "asset_qa").mkdir(parents=True, exist_ok=True)
 (PROJECT_ROOT / "storage" / "repairs").mkdir(parents=True, exist_ok=True)
 
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    env_service.log_startup()
+    yield
+
+
+_app_env = os.environ.get("APP_ENV", "development")
+_cors_origins = ["*"] if _app_env == "production" else [settings.FRONTEND_URL]
+
 app = FastAPI(
     title=settings.APP_NAME,
     description="AI-powered image-to-3D, sculpting, rigging, and animation pipeline studio.",
-    version="2.7.0",
+    version="2.8.0",
+    lifespan=lifespan,
 )
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[settings.FRONTEND_URL],
-    allow_credentials=True,
+    allow_origins=_cors_origins,
+    allow_credentials=_app_env != "production",
     allow_methods=["*"],
     allow_headers=["*"],
 )
