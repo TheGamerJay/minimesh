@@ -1,6 +1,9 @@
 import { useState, useEffect, useCallback } from "react";
 import AnimationPreview from "./pages/AnimationPreview";
 import DeploymentStatus from "./pages/DeploymentStatus";
+import LoginPage from "./pages/LoginPage";
+import RegisterPage from "./pages/RegisterPage";
+import { AuthProvider, useAuth } from "./context/AuthContext";
 import SculptStudio from "./pages/SculptStudio";
 import WorkerConsole from "./pages/WorkerConsole";
 import CreditDashboard from "./pages/CreditDashboard";
@@ -41,7 +44,8 @@ type Page =
   | "sculpt_studio"
   | "worker_console"
   | "export_manager"
-  | "deployment_status";
+  | "deployment_status"
+  | "account_session";
 
 const PIPELINE_STEPS: {
   id: number;
@@ -169,6 +173,13 @@ const PIPELINE_STEPS: {
     description: "Production readiness, environment validation, and deployment diagnostics.",
     page: "deployment_status" as Page,
   },
+  {
+    id: 18,
+    label: "Account & Session",
+    icon: "◎",
+    description: "Manage account access, local sessions, and future cloud ownership workflows.",
+    page: "account_session" as Page,
+  },
 ];
 
 function PipelineCard({
@@ -230,7 +241,42 @@ function PipelineCard({
   );
 }
 
+function AuthGate() {
+  const { user, loading, logout } = useAuth();
+  const [authPage, setAuthPage] = useState<"login" | "register">("login");
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#0a0a0f] flex items-center justify-center">
+        <span className="text-slate-500 font-mono text-sm animate-pulse">Loading session…</span>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return authPage === "login"
+      ? <LoginPage onRegister={() => setAuthPage("register")} />
+      : <RegisterPage onLogin={() => setAuthPage("login")} />;
+  }
+
+  return <AppShell user={user} onLogout={logout} />;
+}
+
 export default function App() {
+  return (
+    <AuthProvider>
+      <AuthGate />
+    </AuthProvider>
+  );
+}
+
+function AppShell({
+  user,
+  onLogout,
+}: {
+  user: { id: string; username: string; email: string };
+  onLogout: () => Promise<void>;
+}) {
   const [page, setPage] = useState<Page>("home");
   const [viewerJob, setViewerJob] = useState<Job | null>(null);
   const [rigSourceJob, setRigSourceJob] = useState<Job | null>(null);
@@ -423,6 +469,61 @@ export default function App() {
     return <DeploymentStatus onBack={() => setPage("home")} />;
   }
 
+  if (page === "account_session") {
+    return (
+      <div className="min-h-screen bg-[#0a0a0f] text-slate-100 flex flex-col">
+        <header className="border-b border-white/5 px-6 py-4 flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-4">
+            <button onClick={() => setPage("home")} className="text-slate-400 hover:text-slate-200 transition-colors text-sm font-mono">
+              ← Back
+            </button>
+            <div className="w-px h-5 bg-white/10" />
+            <span className="font-semibold text-slate-100">Account &amp; Session</span>
+          </div>
+        </header>
+        <main className="flex-1 overflow-y-auto">
+          <div className="max-w-lg mx-auto px-6 py-12 flex flex-col gap-6">
+            <div className="glass rounded-xl p-6 flex flex-col gap-4">
+              <h3 className="text-[10px] font-mono text-slate-500 uppercase tracking-widest">Current Session</h3>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-cyan-500 to-violet-600 flex items-center justify-center text-white text-sm font-bold">
+                  {user.username[0].toUpperCase()}
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-slate-100">{user.username}</p>
+                  <p className="text-[11px] text-slate-500 font-mono">{user.email}</p>
+                </div>
+                <span className="ml-auto flex items-center gap-1 text-[10px] text-emerald-400 font-mono">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" /> Active
+                </span>
+              </div>
+            </div>
+            <div className="glass rounded-xl p-4 flex flex-col gap-3">
+              <h3 className="text-[10px] font-mono text-slate-500 uppercase tracking-widest">Session Info</h3>
+              <div className="flex items-center gap-3 py-1.5 border-b border-white/5">
+                <span className="text-[10px] font-mono text-slate-500 w-24 shrink-0">User ID</span>
+                <span className="text-[10px] font-mono text-slate-400 break-all">{user.id}</span>
+              </div>
+              <div className="flex items-center gap-3 py-1.5">
+                <span className="text-[10px] font-mono text-slate-500 w-24 shrink-0">Auth</span>
+                <span className="text-[10px] font-mono text-emerald-400">Local session — 30-day token</span>
+              </div>
+            </div>
+            <div className="rounded-xl border border-white/5 bg-white/[0.02] px-4 py-3 text-[11px] text-slate-500 leading-relaxed">
+              OAuth, teams, and subscription management will be available in future phases.
+            </div>
+            <button
+              onClick={() => onLogout()}
+              className="w-full py-2.5 rounded-lg border border-red-500/30 text-red-400 text-sm font-semibold hover:bg-red-500/5 transition-all"
+            >
+              Sign Out
+            </button>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
   if (page === "texture_studio" || page === "uv_bake_prep") {
     return (
       <CreditContext.Provider value={creditContextValue}>
@@ -490,8 +591,19 @@ export default function App() {
             </button>
           )}
           <span className="text-xs font-mono px-3 py-1 rounded-full border border-cyan-500/30 text-cyan-400 bg-cyan-500/5">
-            Phase 28 — Production Deployment Prep
+            Phase 29 — Auth &amp; User Ownership
           </span>
+          <button
+            onClick={() => onLogout()}
+            className="flex items-center gap-2 px-3 py-1 rounded-full border border-white/10 bg-white/5 hover:border-red-500/30 hover:bg-red-500/5 transition-all duration-150"
+            title={`Logged in as ${user.username}`}
+          >
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+            <span className="text-xs text-slate-300 font-mono max-w-[100px] truncate">
+              {user.username}
+            </span>
+            <span className="text-[10px] text-slate-500">↩</span>
+          </button>
         </div>
       </header>
 

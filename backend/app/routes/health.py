@@ -19,6 +19,7 @@ class _Checks(BaseModel):
     frontend_dist: bool = False
     provider_registry: bool = False
     blender_available: bool = False
+    auth_storage: bool = False
 
 
 class ReadinessReport(BaseModel):
@@ -70,11 +71,18 @@ async def health_ready():
     except Exception:
         checks.blender_available = False
 
+    # Auth storage
+    try:
+        from app.services.auth_service import auth_storage_ready
+        checks.auth_storage = auth_storage_ready()
+    except Exception:
+        checks.auth_storage = False
+
     ready = checks.storage_writable and checks.provider_registry
 
     return ReadinessReport(
         ready=ready,
-        version="2.8.0",
+        version="2.9.0",
         checks=checks,
         env=env.model_dump(),
         warnings=env.warnings,

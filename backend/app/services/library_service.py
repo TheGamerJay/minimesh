@@ -18,10 +18,11 @@ from app.services.project_context import (
     get_rigs_dir,
     get_animations_dir,
     get_audits_dir,
+    get_project_dir,
+    get_projects_registry_file,
+    _get_active_file,
     ensure_project_dirs,
 )
-
-_REGISTRY_FILE = PROJECT_ROOT / "storage" / "projects_registry.json"
 
 
 def _now() -> str:
@@ -31,17 +32,19 @@ def _now() -> str:
 # â”€â”€ Registry helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 def _load_registry() -> list[dict]:
-    if not _REGISTRY_FILE.exists():
+    f = get_projects_registry_file()
+    if not f.exists():
         return []
     try:
-        return json.loads(_REGISTRY_FILE.read_text(encoding="utf-8"))
+        return json.loads(f.read_text(encoding="utf-8"))
     except Exception:
         return []
 
 
 def _save_registry(entries: list[dict]) -> None:
-    _REGISTRY_FILE.parent.mkdir(parents=True, exist_ok=True)
-    _REGISTRY_FILE.write_text(json.dumps(entries, indent=2, ensure_ascii=False), encoding="utf-8")
+    f = get_projects_registry_file()
+    f.parent.mkdir(parents=True, exist_ok=True)
+    f.write_text(json.dumps(entries, indent=2, ensure_ascii=False), encoding="utf-8")
 
 
 def _upsert_registry(summary: ProjectSummary) -> None:
@@ -158,8 +161,7 @@ def _ensure_legacy_registered() -> None:
     entries.append(legacy)
     _save_registry(entries)
     # If no active project set, activate legacy
-    from app.services.project_context import _ACTIVE_FILE
-    if not _ACTIVE_FILE.exists():
+    if not _get_active_file().exists():
         set_active_project_id(LEGACY_ID)
 
 
@@ -217,8 +219,8 @@ def duplicate_project(project_id: str) -> ProjectSummary:
 
     # Copy storage dirs for non-legacy projects
     if project_id != LEGACY_ID:
-        src = PROJECT_ROOT / "storage" / "projects" / project_id
-        dst = PROJECT_ROOT / "storage" / "projects" / new_id
+        src = get_project_dir(project_id)
+        dst = get_project_dir(new_id)
         if src.exists():
             shutil.copytree(src, dst)
         else:
@@ -247,7 +249,7 @@ def delete_project(project_id: str) -> None:
 
     # Delete storage for non-legacy projects
     if project_id != LEGACY_ID:
-        project_dir = PROJECT_ROOT / "storage" / "projects" / project_id
+        project_dir = get_project_dir(project_id)
         if project_dir.exists():
             shutil.rmtree(project_dir)
 

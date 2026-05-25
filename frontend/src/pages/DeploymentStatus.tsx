@@ -9,6 +9,7 @@ interface Checks {
   frontend_dist: boolean;
   provider_registry: boolean;
   blender_available: boolean;
+  auth_storage: boolean;
 }
 
 interface EnvInfo {
@@ -74,7 +75,7 @@ export default function DeploymentStatus({ onBack }: { onBack: () => void }) {
         </div>
         <div className="flex items-center gap-3">
           <span className="text-xs font-mono px-3 py-1 rounded-full border border-cyan-500/30 text-cyan-400 bg-cyan-500/5">
-            Phase 28 — Production Prep
+            Phase 29 — Auth &amp; User Ownership
           </span>
           <button
             onClick={fetchStatus}
@@ -152,6 +153,11 @@ export default function DeploymentStatus({ onBack }: { onBack: () => void }) {
                     label="Blender Bridge"
                     status={report.checks.blender_available ? "ok" : "warning"}
                     detail={report.checks.blender_available ? "Blender detected" : "Not found — fallback mode active"}
+                  />
+                  <DeploymentHealthCard
+                    label="Auth Storage"
+                    status={report.checks.auth_storage ? "ok" : "warning"}
+                    detail={report.checks.auth_storage ? "User registry ready" : "No users yet — register to initialize"}
                   />
                 </div>
               </div>

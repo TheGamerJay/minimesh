@@ -6,9 +6,44 @@ Upload reference images. Choose a sculpt style. Generate a production-ready 3D a
 
 ---
 
-## Current Phase: Phase 28 — Production Deployment Prep (v2.8.0)
+## Current Phase: Phase 29 — Auth + User Ownership Foundation (v2.9.0)
 
-Dockerization, health checks, environment validation, startup logging, and a Deployment Status UI. Multi-stage Dockerfile (Node 20 + Python 3.11 + nginx + supervisor), `/health/live` liveness probe, `/health/ready` readiness probe with storage/frontend/provider/Blender checks, `env_service` validates all runtime configuration on startup, `miniforge.json` for Mini Forge platform integration. See [docs/PHASES.md](docs/PHASES.md) for the full roadmap.
+Local authentication, per-user project isolation, and protected routes. Secure token sessions (30-day TTL), bcrypt password hashing, Bearer token middleware, per-user storage paths, and automatic legacy data migration. See [docs/PHASES.md](docs/PHASES.md) for the full roadmap.
+
+**Auth routes:**
+
+| Route | Method | Auth | Description |
+|-------|--------|------|-------------|
+| `/api/auth/register` | POST | Public | Create account `{username, email, password}` → `{token, user}` |
+| `/api/auth/login` | POST | Public | Login `{username, password}` → `{token, user}` |
+| `/api/auth/logout` | POST | Bearer | Invalidate session token |
+| `/api/auth/me` | GET | Bearer | Get current user `{id, username, email}` |
+
+**Protected routes:** All `/api/*` routes except `/api/auth/` and `/health*` require `Authorization: Bearer {token}`.
+
+**Session setup:**
+```bash
+# Register a new account
+curl -X POST http://localhost:8080/api/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"username": "myname", "email": "me@example.com", "password": "secret123"}'
+
+# Login
+curl -X POST http://localhost:8080/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username": "myname", "password": "secret123"}'
+
+# Use token on protected routes
+curl http://localhost:8080/api/library/projects \
+  -H "Authorization: Bearer {token}"
+```
+
+**Legacy migration:** If pre-auth storage data exists (`storage/projects/`, `storage/uploads/`), a `default_local_user` is automatically created on startup:
+```
+username : local
+password : local
+```
+Log in with these credentials to access existing project data.
 
 **Repair routes (Phase 27):**
 

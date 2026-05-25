@@ -888,6 +888,102 @@ Both must be mounted as persistent volumes in production — contents do not sur
 
 ---
 
+## Auth Layer (Phase 29)
+
+**Files:** `backend/app/models/auth.py`, `backend/app/services/auth_service.py`, `backend/app/services/auth_middleware.py`, `backend/app/routes/auth.py`
+
+### Data Models
+
+```
+User          — id, username, email, password_hash, created_at, last_login, is_legacy
+SessionUser   — id, username, email  (safe — no password_hash)
+AuthResponse  — token, user: SessionUser
+```
+
+### Password Hashing
+
+bcrypt (via `bcrypt` package), with PBKDF2-HMAC-SHA256 automatic fallback if bcrypt is unavailable. Passwords are NEVER stored in plaintext or returned in API responses.
+
+### Session Tokens
+
+`secrets.token_urlsafe(32)` — 256-bit cryptographically secure random tokens. Stored in `storage/auth/sessions.json` as `{token: {user_id, created_at, expires_at}}`. TTL: 30 days. Logout immediately deletes the token from the session store.
+
+### Auth Routes
+
+```
+POST /api/auth/register   body: {username, email, password}   → AuthResponse (201)
+POST /api/auth/login      body: {username, password}           → AuthResponse
+POST /api/auth/logout     Authorization: Bearer {token}        → {detail}
+GET  /api/auth/me         Authorization: Bearer {token}        → SessionUser
+```
+
+### Session Middleware
+
+`AuthMiddleware` (Starlette `BaseHTTPMiddleware`):
+1. Extracts `Bearer {token}` from `Authorization` header
+2. Validates token via `auth_service.validate_token()`
+3. Sets `request.state.user` and `_current_user_id` ContextVar
+4. Returns CORS-aware 401 for unauthenticated requests to `/api/` (except `/api/auth/` and `/health`)
+5. Resets ContextVar after response (prevents context leaks)
+
+Middleware order in `main.py`: `AuthMiddleware` (inner) → `CORSMiddleware` (outermost). CORS headers are applied even to 401 responses.
+
+### Frontend Auth
+
+- Fetch interceptor in `main.tsx` patches `window.fetch` to inject `Authorization: Bearer {token}` on all `/api/` requests using the token from `localStorage["minimesh_token"]`
+- `AuthContext` (React context): loads session on mount, provides `login/register/logout`, exposes `user: SessionUser | null` and `loading: bool`
+- `AuthGate` in `App.tsx`: shows loading spinner → `LoginPage`/`RegisterPage` → `AppShell` based on auth state
+
+---
+
+## User Ownership System (Phase 29)
+
+**Files:** `backend/app/services/project_context.py` (rewritten), `library_service.py`, `export_package_service.py`
+
+### Storage Path Isolation
+
+Projects and assets are scoped to the authenticated user via a ContextVar read at path-resolution time:
+
+| User | Storage Base |
+|------|-------------|
+| `default_local_user` | `storage/` (legacy paths unchanged) |
+| Any other user | `storage/users/{user_id}/` |
+
+Project paths:
+
+| Context | Storage | Exports |
+|---------|---------|---------|
+| Default user + LEGACY project | `storage/` | `exports/` |
+| Default user + project | `storage/projects/{pid}/` | `exports/projects/{pid}/` |
+| New user + LEGACY project | `storage/users/{uid}/` | `exports/users/{uid}/` |
+| New user + project | `storage/users/{uid}/projects/{pid}/` | `exports/users/{uid}/projects/{pid}/` |
+
+### Context Variable
+
+`_current_user_id: ContextVar[str | None]` in `project_context.py`. Set per-request by `AuthMiddleware`. All path-returning functions read this var at call time — no changes needed to individual service callers.
+
+### Project Registry Isolation
+
+`get_projects_registry_file()` returns:
+- `storage/users/{uid}/projects_registry.json` for authenticated non-legacy users
+- `storage/projects_registry.json` for `default_local_user`
+
+This ensures each user sees only their own project list.
+
+### Export Package Isolation
+
+`get_export_packages_v2_storage()` and `get_export_packages_v2_output()` return user-specific paths. Package metadata (`{id}.json`) and ZIP outputs are stored in the user's own subtree, so `list_packages()` only returns the current user's packages.
+
+### Migration System
+
+`auth_service.ensure_migration()` runs on every startup (called from lifespan):
+1. If `storage/auth/users.json` already exists → no-op
+2. Checks for legacy markers: `storage/projects_registry.json`, `storage/projects/`, `storage/uploads/`
+3. If found: creates `default_local_user` (username=`local`, password=`local`) in users.json
+4. Logs credentials to console so existing users can log in and access their legacy data
+
+---
+
 ## Legacy Deployment Note (Phase 13 original plan)
 
 Previous plan targeted Railway + Cloudflare R2. Phase 28 supersedes this with a Mini Forge-first deployment approach (Docker + single-binary supervisord process). Railway/R2 integration may be revisited in a future hardening phase.

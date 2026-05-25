@@ -9,6 +9,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.config import settings
 from app.services import env_service
+from app.services.auth_middleware import AuthMiddleware
 from app.routes.animations import router as animations_router
 from app.routes.audits import router as audits_router
 from app.routes.exports import router as exports_router
@@ -31,6 +32,7 @@ from app.routes.thumbnails import router as thumbnails_router
 from app.routes.export_v2 import router as export_v2_router
 from app.routes.asset_qa import router as asset_qa_router
 from app.routes.repair import router as repair_router
+from app.routes.auth import router as auth_router
 from app.routes.projects import router as projects_router
 from app.routes.rigs import router as rigs_router
 from app.routes.uploads import router as uploads_router
@@ -75,11 +77,14 @@ _PACKAGES_DIR.mkdir(parents=True, exist_ok=True)
 (PROJECT_ROOT / "exports" / "packages_v2").mkdir(parents=True, exist_ok=True)
 (PROJECT_ROOT / "storage" / "asset_qa").mkdir(parents=True, exist_ok=True)
 (PROJECT_ROOT / "storage" / "repairs").mkdir(parents=True, exist_ok=True)
+(PROJECT_ROOT / "storage" / "auth").mkdir(parents=True, exist_ok=True)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     env_service.log_startup()
+    from app.services.auth_service import ensure_migration
+    ensure_migration()
     yield
 
 
@@ -92,6 +97,8 @@ app = FastAPI(
     version="2.8.0",
     lifespan=lifespan,
 )
+
+app.add_middleware(AuthMiddleware)
 
 app.add_middleware(
     CORSMiddleware,
@@ -115,6 +122,7 @@ async def serve_upload(filename: str):
 
 
 app.include_router(health_router)
+app.include_router(auth_router)
 app.include_router(uploads_router)
 app.include_router(projects_router)
 app.include_router(generation_router)

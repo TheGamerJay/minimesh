@@ -12,14 +12,15 @@ from app.models.export_v2 import (
     EXPORT_TYPE_FLAGS,
 )
 from app.services.asset_service import get_asset
-from app.services.project_context import PROJECT_ROOT
-
-_STORAGE_DIR = PROJECT_ROOT / "storage" / "export_packages_v2"
-_OUTPUT_DIR = PROJECT_ROOT / "exports" / "packages_v2"
+from app.services.project_context import (
+    PROJECT_ROOT,
+    get_export_packages_v2_storage,
+    get_export_packages_v2_output,
+)
 
 
 def _pkg_path(package_id: str) -> Path:
-    return _STORAGE_DIR / f"{package_id}.json"
+    return get_export_packages_v2_storage() / f"{package_id}.json"
 
 
 def _load_pkg(package_id: str) -> AssetExportPackage | None:
@@ -33,7 +34,8 @@ def _load_pkg(package_id: str) -> AssetExportPackage | None:
 
 
 def _save_pkg(pkg: AssetExportPackage) -> None:
-    _STORAGE_DIR.mkdir(parents=True, exist_ok=True)
+    storage_dir = get_export_packages_v2_storage()
+    storage_dir.mkdir(parents=True, exist_ok=True)
     _pkg_path(pkg.id).write_text(json.dumps(pkg.model_dump(), indent=2), encoding="utf-8")
 
 
@@ -42,10 +44,11 @@ def get_package(package_id: str) -> AssetExportPackage | None:
 
 
 def list_packages(asset_id: str | None = None) -> list[AssetExportPackage]:
-    if not _STORAGE_DIR.exists():
+    storage_dir = get_export_packages_v2_storage()
+    if not storage_dir.exists():
         return []
     packages: list[AssetExportPackage] = []
-    for f in _STORAGE_DIR.glob("*.json"):
+    for f in storage_dir.glob("*.json"):
         try:
             pkg = AssetExportPackage.model_validate(json.loads(f.read_text(encoding="utf-8")))
             if asset_id is None or pkg.asset_id == asset_id:
@@ -109,7 +112,7 @@ def create_package(
     flags = EXPORT_TYPE_FLAGS[export_type]
     package_id = str(uuid.uuid4())
     now = datetime.now(timezone.utc).isoformat()
-    pkg_dir = _OUTPUT_DIR / package_id
+    pkg_dir = get_export_packages_v2_output() / package_id
     pkg_dir.mkdir(parents=True, exist_ok=True)
 
     included_files: list[str] = []
