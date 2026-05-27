@@ -33,6 +33,7 @@ from app.routes.export_v2 import router as export_v2_router
 from app.routes.asset_qa import router as asset_qa_router
 from app.routes.repair import router as repair_router
 from app.routes.auth import router as auth_router
+from app.routes.admin import router as admin_router
 from app.routes.projects import router as projects_router
 from app.routes.rigs import router as rigs_router
 from app.routes.uploads import router as uploads_router
@@ -78,6 +79,7 @@ _PACKAGES_DIR.mkdir(parents=True, exist_ok=True)
 (PROJECT_ROOT / "storage" / "asset_qa").mkdir(parents=True, exist_ok=True)
 (PROJECT_ROOT / "storage" / "repairs").mkdir(parents=True, exist_ok=True)
 (PROJECT_ROOT / "storage" / "auth").mkdir(parents=True, exist_ok=True)
+(PROJECT_ROOT / "storage" / "audit_logs").mkdir(parents=True, exist_ok=True)
 
 
 @asynccontextmanager
@@ -94,7 +96,7 @@ _cors_origins = ["*"] if _app_env == "production" else [settings.FRONTEND_URL]
 app = FastAPI(
     title=settings.APP_NAME,
     description="AI-powered image-to-3D, sculpting, rigging, and animation pipeline studio.",
-    version="2.8.0",
+    version="3.0.0",
     lifespan=lifespan,
 )
 
@@ -123,6 +125,7 @@ async def serve_upload(filename: str):
 
 app.include_router(health_router)
 app.include_router(auth_router)
+app.include_router(admin_router)
 app.include_router(uploads_router)
 app.include_router(projects_router)
 app.include_router(generation_router)

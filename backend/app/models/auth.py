@@ -10,12 +10,14 @@ class User(BaseModel):
     created_at: str
     last_login: str | None = None
     is_legacy: bool = False
+    is_admin: bool = False
 
 
 class SessionUser(BaseModel):
     id: str
     username: str
     email: str
+    is_admin: bool = False
 
 
 class AuthResponse(BaseModel):

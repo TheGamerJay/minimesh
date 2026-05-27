@@ -141,7 +141,12 @@ def register(username: str, email: str, password: str):
     _save_users(users)
 
     token = _create_session(user_id)
-    return AuthResponse(token=token, user=SessionUser(id=user_id, username=username, email=email))
+    try:
+        from app.services.admin_service import log_audit
+        log_audit("auth", "register", user_id, f"New user registered: {username}")
+    except Exception:
+        pass
+    return AuthResponse(token=token, user=SessionUser(id=user_id, username=username, email=email, is_admin=False))
 
 
 def login(username_or_email: str, password: str):
@@ -160,16 +165,32 @@ def login(username_or_email: str, password: str):
     _save_users(users)
 
     token = _create_session(user["id"])
+    try:
+        from app.services.admin_service import log_audit
+        log_audit("auth", "login", user["id"], f"User logged in: {user['username']}")
+    except Exception:
+        pass
     return AuthResponse(
         token=token,
-        user=SessionUser(id=user["id"], username=user["username"], email=user["email"]),
+        user=SessionUser(
+            id=user["id"],
+            username=user["username"],
+            email=user["email"],
+            is_admin=user.get("is_admin", False),
+        ),
     )
 
 
 def logout(token: str) -> None:
     sessions = _load_sessions()
-    sessions.pop(token, None)
+    session = sessions.pop(token, None)
     _save_sessions(sessions)
+    if session:
+        try:
+            from app.services.admin_service import log_audit
+            log_audit("auth", "logout", session.get("user_id", "unknown"), "User logged out")
+        except Exception:
+            pass
 
 
 def validate_token(token: str):
@@ -195,7 +216,12 @@ def validate_token(token: str):
     user = next((u for u in _load_users() if u["id"] == user_id), None)
     if not user:
         return None
-    return SessionUser(id=user["id"], username=user["username"], email=user["email"])
+    return SessionUser(
+        id=user["id"],
+        username=user["username"],
+        email=user["email"],
+        is_admin=user.get("is_admin", False),
+    )
 
 
 def auth_storage_ready() -> bool:
@@ -227,6 +253,7 @@ def ensure_migration() -> None:
         "created_at": now,
         "last_login": None,
         "is_legacy": True,
+        "is_admin": True,
     }
     _save_users([default_user])
     print(

@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import AdminDashboard from "./pages/AdminDashboard";
 import AnimationPreview from "./pages/AnimationPreview";
 import DeploymentStatus from "./pages/DeploymentStatus";
 import LoginPage from "./pages/LoginPage";
@@ -45,7 +46,8 @@ type Page =
   | "worker_console"
   | "export_manager"
   | "deployment_status"
-  | "account_session";
+  | "account_session"
+  | "admin_dashboard";
 
 const PIPELINE_STEPS: {
   id: number;
@@ -53,6 +55,7 @@ const PIPELINE_STEPS: {
   icon: string;
   description: string;
   page?: Page;
+  adminOnly?: boolean;
 }[] = [
   {
     id: 1,
@@ -180,6 +183,14 @@ const PIPELINE_STEPS: {
     description: "Manage account access, local sessions, and future cloud ownership workflows.",
     page: "account_session" as Page,
   },
+  {
+    id: 19,
+    label: "Admin Dashboard",
+    icon: "◈",
+    description: "Platform-wide monitoring: users, storage, provider usage, audit logs, and system health.",
+    page: "admin_dashboard" as Page,
+    adminOnly: true,
+  },
 ];
 
 function PipelineCard({
@@ -274,7 +285,7 @@ function AppShell({
   user,
   onLogout,
 }: {
-  user: { id: string; username: string; email: string };
+  user: { id: string; username: string; email: string; is_admin: boolean };
   onLogout: () => Promise<void>;
 }) {
   const [page, setPage] = useState<Page>("home");
@@ -469,6 +480,11 @@ function AppShell({
     return <DeploymentStatus onBack={() => setPage("home")} />;
   }
 
+  if (page === "admin_dashboard") {
+    if (!user.is_admin) return null;
+    return <AdminDashboard onBack={() => setPage("home")} />;
+  }
+
   if (page === "account_session") {
     return (
       <div className="min-h-screen bg-[#0a0a0f] text-slate-100 flex flex-col">
@@ -591,7 +607,7 @@ function AppShell({
             </button>
           )}
           <span className="text-xs font-mono px-3 py-1 rounded-full border border-cyan-500/30 text-cyan-400 bg-cyan-500/5">
-            Phase 29 — Auth &amp; User Ownership
+            Phase 30 — Admin &amp; Safety
           </span>
           <button
             onClick={() => onLogout()}
@@ -633,7 +649,7 @@ function AppShell({
             Pipeline Steps
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {PIPELINE_STEPS.map((step, i) => (
+            {PIPELINE_STEPS.filter((s) => !s.adminOnly || user.is_admin).map((step, i) => (
               <PipelineCard
                 key={step.id}
                 step={step}
@@ -655,7 +671,7 @@ function AppShell({
               </span>
             </span>
           </div>
-          <span className="text-xs text-slate-600 font-mono">v2.8.0</span>
+          <span className="text-xs text-slate-600 font-mono">v3.0.0</span>
         </div>
       </main>
     </div>

@@ -51,6 +51,13 @@ class AuthMiddleware(BaseHTTPMiddleware):
             if ctx_token is not None:
                 _current_user_id.reset(ctx_token)
 
+        if user and response.status_code < 400:
+            try:
+                from app.services.admin_service import log_audit_from_request
+                log_audit_from_request(path, request.method, user.id)
+            except Exception:
+                pass
+
         return response
 
 
